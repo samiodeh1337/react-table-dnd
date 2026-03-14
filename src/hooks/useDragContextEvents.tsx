@@ -35,8 +35,6 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
   const touchMoveBeforeDragRef = useRef<any>(null);
   const touchEndBeforeDragRef = useRef<any>(null);
 
-  // Pointer capture for guaranteed pointermove delivery
-  const capturedPointerIdRef = useRef<number | null>(null);
 
   const computeRowItems = useCallback(() => {
     const body = refs.bodyRef.current;
@@ -216,7 +214,7 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
     }
 
     positionPlaceholder(targetEl, sourceIndex, targetIndex, currentDragType);
-  }, [refs.bodyRef, refs.headerRef, positionPlaceholder]);
+  }, [refs.bodyRef, refs.headerRef, refs.placeholderRef, positionPlaceholder]);
 
   const clearShiftTransforms = useCallback(() => {
     const ph = refs.placeholderRef?.current;
@@ -363,7 +361,7 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
         requestAnimationFrame(syncCloneScroll);
       });
     },
-    [refs.bodyRef, refs.cloneRef, refs.tableRef, pointerRef, dispatch, computeRowItems, computeColumnItems]
+    [dispatch, refs, computeRowItems, computeColumnItems]
   );
 
   // ── Mouse: start drag immediately ─────────────────────
@@ -390,6 +388,18 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
   const touchStart = useCallback(
     (e) => {
       if (e.target === e.currentTarget) return;
+
+      // Check if the touch is on a draggable element before starting long-press
+      let el = e.target;
+      let isDraggable = false;
+      while (el) {
+        if (el.dataset?.contextid) break;
+        if (el.dataset?.disabled === "true") break;
+        if (el.dataset?.id) { isDraggable = true; break; }
+        el = el.parentNode;
+      }
+      if (!isDraggable) return;
+
       cancelLongPress();
       isTouchActiveRef.current = true;
 
@@ -397,13 +407,21 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
       touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
       pendingTouchEventRef.current = e;
 
+      // Once long-press is pending, use non-passive touchmove to block
+      // page scroll after the threshold is NOT exceeded (finger held still)
+      let longPressConfirmed = false;
+
       const onMove = (ev: TouchEvent) => {
         const t = ev.touches[0];
         const dx = t.clientX - touchStartPosRef.current.x;
         const dy = t.clientY - touchStartPosRef.current.y;
-        if (Math.abs(dx) > LONG_PRESS_MOVE_THRESHOLD || Math.abs(dy) > LONG_PRESS_MOVE_THRESHOLD) {
+        if (!longPressConfirmed && (Math.abs(dx) > LONG_PRESS_MOVE_THRESHOLD || Math.abs(dy) > LONG_PRESS_MOVE_THRESHOLD)) {
+          // Finger moved too far — cancel long press, allow normal scroll
           cancelLongPress();
           setTimeout(() => { isTouchActiveRef.current = false; }, 400);
+        } else if (longPressConfirmed) {
+          // Long press fired — block page scroll
+          ev.preventDefault();
         }
       };
       const onEnd = () => {
@@ -412,27 +430,37 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
       };
       touchMoveBeforeDragRef.current = onMove;
       touchEndBeforeDragRef.current = onEnd;
-      window.addEventListener("touchmove", onMove, { passive: true });
+      // MUST be non-passive so we can preventDefault after long-press confirms
+      window.addEventListener("touchmove", onMove, { passive: false });
       window.addEventListener("touchend", onEnd, false);
 
       longPressTimerRef.current = setTimeout(() => {
         longPressTimerRef.current = null;
-        window.removeEventListener("touchmove", onMove);
-        window.removeEventListener("touchend", onEnd);
+        longPressConfirmed = true;
+
+        // Set touch-action before starting drag
+        const tableEl = refs.tableRef?.current;
+        if (tableEl) tableEl.style.touchAction = "none";
+
         const saved = pendingTouchEventRef.current;
         pendingTouchEventRef.current = null;
         if (saved) {
           beginDrag(saved, touch.clientX, touch.clientY);
         }
+        // Keep onMove active — it calls preventDefault to block page scroll.
+        // Replace onEnd to trigger dragEnd instead of cancelLongPress.
+        window.removeEventListener("touchend", onEnd);
+        const onDragEnd = () => {
+          window.removeEventListener("touchmove", onMove);
+          window.removeEventListener("touchend", onDragEnd);
+          dragEnd();
+        };
+        window.addEventListener("touchend", onDragEnd, false);
       }, LONG_PRESS_DELAY);
     },
-    [beginDrag, cancelLongPress]
+    [beginDrag, cancelLongPress, refs.tableRef]
   );
 
-  // ── Capture pointer ID on pointerdown ─────────────────
-  const onPointerDown = useCallback((e: any) => {
-    capturedPointerIdRef.current = e.pointerId ?? null;
-  }, []);
 
   // ── Drag end ──────────────────────────────────────────
   const dragEnd = useCallback(() => {
@@ -642,7 +670,16 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
         });
       }
     },
-    [pointerRef, refs.cloneRef, refs.bodyRef, dragType, computeRowItems, startAutoScroll, stopAutoScroll, computeColumnItems, applyShiftTransforms]
+    [
+      dragType,
+      refs.bodyRef,
+      refs.cloneRef,
+      computeRowItems,
+      computeColumnItems,
+      startAutoScroll,
+      stopAutoScroll,
+      applyShiftTransforms,
+    ]
   );
 
   // ── Drag cancel (Escape) ──────────────────────────────
@@ -683,47 +720,30 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
       const body = refs.bodyRef.current;
       const tableEl = refs.tableRef?.current;
 
-      // Pointer capture guarantees pointermove delivery on mobile
-      if (tableEl && capturedPointerIdRef.current !== null) {
-        try { tableEl.setPointerCapture(capturedPointerIdRef.current); } catch (_) {}
-      }
-
+      // Use pointermove on window — works for both mouse and touch.
+      // No setPointerCapture (it fires pointercancel on active touches).
       const onPointerMove = (e: PointerEvent) => {
-        if (e.pointerType === "touch") e.preventDefault();
         drag(e);
       };
-      const onPointerUp = () => dragEnd();
-      const onPointerCancel = () => dragEnd();
 
-      if (tableEl) {
-        tableEl.addEventListener("pointermove", onPointerMove, { passive: false });
-        tableEl.addEventListener("pointerup", onPointerUp);
-        tableEl.addEventListener("pointercancel", onPointerCancel);
-      }
-
-      window.addEventListener("mouseup", dragEnd, false);
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", dragEnd);
+      window.addEventListener("pointercancel", dragEnd);
       window.addEventListener("keydown", handleKeyDown);
       body?.addEventListener("scroll", handleScrollDuringDrag, { passive: true });
 
       return () => {
-        if (tableEl) {
-          tableEl.removeEventListener("pointermove", onPointerMove);
-          tableEl.removeEventListener("pointerup", onPointerUp);
-          tableEl.removeEventListener("pointercancel", onPointerCancel);
-          if (capturedPointerIdRef.current !== null) {
-            try { tableEl.releasePointerCapture(capturedPointerIdRef.current); } catch (_) {}
-            capturedPointerIdRef.current = null;
-          }
-          tableEl.style.touchAction = "";
-        }
-        window.removeEventListener("mouseup", dragEnd, false);
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", dragEnd);
+        window.removeEventListener("pointercancel", dragEnd);
         window.removeEventListener("keydown", handleKeyDown);
         body?.removeEventListener("scroll", handleScrollDuringDrag);
+        if (tableEl) tableEl.style.touchAction = "";
       };
     }
   }, [dragged.isDragging, drag, dragEnd, dragCancel, handleKeyDown, handleScrollDuringDrag, refs.bodyRef, refs.tableRef]);
 
-  return { dragStart, touchStart, onPointerDown };
+  return { dragStart, touchStart };
 };
 
 export default useDragContextEvents;

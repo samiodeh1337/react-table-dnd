@@ -175,7 +175,7 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
       dispatch({ type: "setOptions", value: options });
     }, [options]);
 
-    const { dragStart, touchStart, onPointerDown } = useDragContextEvents(
+    const { dragStart, touchStart } = useDragContextEvents(
       state.refs,
       state.dragged,
       dispatch,
@@ -238,7 +238,6 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
             ref={localRef}
             onMouseDown={dragStart}
             onTouchStart={touchStart}
-            onPointerDown={onPointerDown}
             style={{ ...TABLE_DEFAULT_STYLES, ...style }}
             className={`table ${className ?? ""}`}
           >
