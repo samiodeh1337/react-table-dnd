@@ -10,6 +10,8 @@ import CustomStyledExample from "./examples/example-styled";
 import VirtualExample from "./examples/example-virtual";
 import StylingExample from "./examples/example-styling";
 import DragHandleExample from "./examples/example-handle";
+import StyledCompExample from "./examples/example-styledcomp";
+import TailwindExample from "./examples/example-tailwind";
 import {
   TableContainer as _TC, TableHeader as _TH, ColumnCell as _CC,
   TableBody as _TB, BodyRow as _BR, RowCell as _RC,
@@ -24,6 +26,8 @@ import srcStyledTsx from "./examples/example-styled.tsx?raw";
 import srcVirtualTsx from "./examples/example-virtual.tsx?raw";
 import srcStylingTsx from "./examples/example-styling.tsx?raw";
 import srcHandleTsx from "./examples/example-handle.tsx?raw";
+import srcStyledCompTsx from "./examples/example-styledcomp.tsx?raw";
+import srcTailwindTsx from "./examples/example-tailwind.tsx?raw";
 import srcDataTsx from "./examples/example-data.ts?raw";
 
 // Raw source imports for code preview (JSX — standalone copies)
@@ -34,6 +38,8 @@ import srcStyledJsx from "./examples/jsx/example-styled.jsx?raw";
 import srcVirtualJsx from "./examples/jsx/example-virtual.jsx?raw";
 import srcStylingJsx from "./examples/jsx/example-styling.jsx?raw";
 import srcHandleJsx from "./examples/jsx/example-handle.jsx?raw";
+import srcStyledCompJsx from "./examples/jsx/example-styledcomp.jsx?raw";
+import srcTailwindJsx from "./examples/jsx/example-tailwind.jsx?raw";
 
 hljs.registerLanguage("typescript", typescript);
 hljs.registerLanguage("tsx", typescript);
@@ -51,13 +57,15 @@ function prepareTsx(raw: string): string {
 }
 
 const EXAMPLES = [
-  { id: "fixed",   label: "Fixed Sizes",        component: FixedExample,           tsx: prepareTsx(srcFixedTsx),   jsx: srcFixedJsx   },
-  { id: "flex",    label: "Custom Heights",      component: CustomRowHeightsExample, tsx: prepareTsx(srcFlexTsx),    jsx: srcFlexJsx    },
-  { id: "options", label: "Drag Ranges",         component: OptionsExample,          tsx: prepareTsx(srcOptionsTsx), jsx: srcOptionsJsx },
-  { id: "styled",  label: "Custom Styled",       component: CustomStyledExample,     tsx: prepareTsx(srcStyledTsx),  jsx: srcStyledJsx  },
-  { id: "virtual", label: "Virtual (100k rows)", component: VirtualExample,          tsx: prepareTsx(srcVirtualTsx), jsx: srcVirtualJsx },
-  { id: "styling", label: "className & style",   component: StylingExample,          tsx: prepareTsx(srcStylingTsx), jsx: srcStylingJsx },
-  { id: "handle",  label: "Drag Handle",         component: DragHandleExample,       tsx: prepareTsx(srcHandleTsx),  jsx: srcHandleJsx  },
+  { id: "styled",  label: "Showcase",            component: CustomStyledExample,     tsx: prepareTsx(srcStyledTsx),  jsx: srcStyledJsx  },
+  { id: "fixed",   label: "Fixed Sizes",         component: FixedExample,            tsx: prepareTsx(srcFixedTsx),   jsx: srcFixedJsx   },
+  { id: "flex",    label: "Custom Heights",       component: CustomRowHeightsExample, tsx: prepareTsx(srcFlexTsx),    jsx: srcFlexJsx    },
+  { id: "options", label: "Drag Ranges",          component: OptionsExample,          tsx: prepareTsx(srcOptionsTsx), jsx: srcOptionsJsx },
+  { id: "virtual", label: "Virtual (100k rows)",  component: VirtualExample,          tsx: prepareTsx(srcVirtualTsx), jsx: srcVirtualJsx },
+  { id: "handle",  label: "Drag Handle",          component: DragHandleExample,       tsx: prepareTsx(srcHandleTsx),  jsx: srcHandleJsx  },
+  { id: "styling", label: "className & style",    component: StylingExample,          tsx: prepareTsx(srcStylingTsx), jsx: srcStylingJsx },
+  { id: "sc",      label: "styled-components",    component: StyledCompExample,       tsx: prepareTsx(srcStyledCompTsx), jsx: srcStyledCompJsx },
+  { id: "tw",      label: "Tailwind CSS",         component: TailwindExample,         tsx: prepareTsx(srcTailwindTsx), jsx: srcTailwindJsx },
 ] as const;
 
 const INSTALL_CMD = "npm install flexitablesort";
@@ -283,9 +291,10 @@ function BasicDemo() {
 }
 
 function App() {
-  const [activeExample, setActiveExample] = useState("fixed");
+  const [activeExample, setActiveExample] = useState("styled");
   const [showCode, setShowCode] = useState(false);
   const [installCopied, setInstallCopied] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   const activeConfig = EXAMPLES.find((e) => e.id === activeExample)!;
   const ActiveComponent = activeConfig.component;
@@ -302,10 +311,19 @@ function App() {
       <nav className="nav">
         <div className="nav-inner">
           <a href="#" className="nav-logo">flexitable<span>sort</span></a>
-          <div className="nav-links">
-            <a href="#demos">Demos</a>
-            <a href="#getting-started">Get Started</a>
-            <a href="#api">API</a>
+          <button className="nav-toggle" onClick={() => setNavOpen((v) => !v)} aria-label="Menu">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              {navOpen ? (
+                <><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>
+              ) : (
+                <><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></>
+              )}
+            </svg>
+          </button>
+          <div className={`nav-links ${navOpen ? "nav-open" : ""}`}>
+            <a href="#demos" onClick={() => setNavOpen(false)}>Demos</a>
+            <a href="#getting-started" onClick={() => setNavOpen(false)}>Get Started</a>
+            <a href="#api" onClick={() => setNavOpen(false)}>API</a>
             <a href="https://github.com/samiodeh1337/sortable-table" target="_blank" rel="noreferrer">GitHub</a>
             <a href="https://www.npmjs.com/package/flexitablesort" target="_blank" rel="noreferrer">npm</a>
           </div>
@@ -421,7 +439,7 @@ function App() {
 
         <h3 id="api-tablecontainer"><code className="inline-code">&lt;TableContainer&gt;</code></h3>
         <p>Root wrapper that provides the drag-and-drop context. Renders a <code className="inline-code">&lt;div&gt;</code> and accepts a ref.</p>
-        <table className="api-table">
+        <div className="api-table-wrap"><table className="api-table">
           <thead><tr><th>Prop</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
           <tbody>
             <tr><td><code>onDragEnd</code></td><td><code>(result: DragEndResult) =&gt; void</code></td><td>—</td><td>Called when a drag completes.</td></tr>
@@ -430,22 +448,22 @@ function App() {
             <tr><td><code>className</code></td><td><code>string</code></td><td>—</td><td>CSS class.</td></tr>
             <tr><td><code>style</code></td><td><code>CSSProperties</code></td><td>—</td><td>Inline styles.</td></tr>
           </tbody>
-        </table>
+        </table></div>
 
         <h3 id="api-tableheader"><code className="inline-code">&lt;TableHeader&gt;</code></h3>
         <p>Container for column header cells. Accepts a ref.</p>
-        <table className="api-table">
+        <div className="api-table-wrap"><table className="api-table">
           <thead><tr><th>Prop</th><th>Type</th><th>Description</th></tr></thead>
           <tbody>
             <tr><td><code>children</code></td><td><code>ReactNode</code></td><td>Should contain <code>ColumnCell</code> elements.</td></tr>
             <tr><td><code>className</code></td><td><code>string</code></td><td>CSS class.</td></tr>
             <tr><td><code>style</code></td><td><code>CSSProperties</code></td><td>Inline styles.</td></tr>
           </tbody>
-        </table>
+        </table></div>
 
         <h3 id="api-columncell"><code className="inline-code">&lt;ColumnCell&gt;</code></h3>
         <p>Individual draggable column header cell.</p>
-        <table className="api-table">
+        <div className="api-table-wrap"><table className="api-table">
           <thead><tr><th>Prop</th><th>Type</th><th>Description</th></tr></thead>
           <tbody>
             <tr><td><code>width</code></td><td><code>number</code></td><td>Fixed width in pixels.</td></tr>
@@ -453,33 +471,33 @@ function App() {
             <tr><td><code>className</code></td><td><code>string</code></td><td>CSS class.</td></tr>
             <tr><td><code>style</code></td><td><code>CSSProperties</code></td><td>Inline styles.</td></tr>
           </tbody>
-        </table>
+        </table></div>
 
         <h3 id="api-tablebody"><code className="inline-code">&lt;TableBody&gt;</code></h3>
         <p>Container for body rows. Accepts a ref (required for virtual scrolling).</p>
-        <table className="api-table">
+        <div className="api-table-wrap"><table className="api-table">
           <thead><tr><th>Prop</th><th>Type</th><th>Description</th></tr></thead>
           <tbody>
             <tr><td><code>children</code></td><td><code>ReactNode</code></td><td>Should contain <code>BodyRow</code> elements.</td></tr>
             <tr><td><code>className</code></td><td><code>string</code></td><td>CSS class.</td></tr>
             <tr><td><code>style</code></td><td><code>CSSProperties</code></td><td>Inline styles.</td></tr>
           </tbody>
-        </table>
+        </table></div>
 
         <h3 id="api-bodyrow"><code className="inline-code">&lt;BodyRow&gt;</code></h3>
         <p>A draggable table row.</p>
-        <table className="api-table">
+        <div className="api-table-wrap"><table className="api-table">
           <thead><tr><th>Prop</th><th>Type</th><th>Description</th></tr></thead>
           <tbody>
             <tr><td><code>children</code></td><td><code>ReactNode</code></td><td>Should contain <code>RowCell</code> elements.</td></tr>
             <tr><td><code>className</code></td><td><code>string</code></td><td>CSS class.</td></tr>
             <tr><td><code>style</code></td><td><code>CSSProperties</code></td><td>Inline styles.</td></tr>
           </tbody>
-        </table>
+        </table></div>
 
         <h3 id="api-rowcell"><code className="inline-code">&lt;RowCell&gt;</code></h3>
         <p>A cell within a body row.</p>
-        <table className="api-table">
+        <div className="api-table-wrap"><table className="api-table">
           <thead><tr><th>Prop</th><th>Type</th><th>Description</th></tr></thead>
           <tbody>
             <tr><td><code>index</code></td><td><code>number</code> <strong>(required)</strong></td><td>Column index — used to sync position during column drags.</td></tr>
@@ -489,21 +507,21 @@ function App() {
             <tr><td><code>className</code></td><td><code>string</code></td><td>CSS class.</td></tr>
             <tr><td><code>style</code></td><td><code>CSSProperties</code></td><td>Inline styles.</td></tr>
           </tbody>
-        </table>
+        </table></div>
 
         <h3 id="api-draghandle"><code className="inline-code">&lt;DragHandle&gt;</code></h3>
         <p>
           Wrap any element inside a <code className="inline-code">ColumnCell</code> or <code className="inline-code">BodyRow</code> with
           this component to make it the drag trigger. When present, only clicking the handle starts a drag — the rest of the row/column is inert.
         </p>
-        <table className="api-table">
+        <div className="api-table-wrap"><table className="api-table">
           <thead><tr><th>Prop</th><th>Type</th><th>Description</th></tr></thead>
           <tbody>
             <tr><td><code>children</code></td><td><code>ReactNode</code></td><td>The handle content (e.g. a grip icon).</td></tr>
             <tr><td><code>className</code></td><td><code>string</code></td><td>CSS class.</td></tr>
             <tr><td><code>style</code></td><td><code>CSSProperties</code></td><td>Inline styles.</td></tr>
           </tbody>
-        </table>
+        </table></div>
 
         <h3 id="api-types">Types</h3>
         <CodeBlock lang="ts" code={TYPES_CODE} />

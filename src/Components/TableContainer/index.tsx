@@ -175,7 +175,7 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
       dispatch({ type: "setOptions", value: options });
     }, [options]);
 
-    const { dragStart } = useDragContextEvents(
+    const { dragStart, touchStart } = useDragContextEvents(
       state.refs,
       state.dragged,
       dispatch,
@@ -220,8 +220,13 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
     return (
       <TableContext.Provider value={value}>
         <Styles className={state.dragged.isDragging ? "is-dragging" : ""}>
-          <div id="portalroot" style={cloneStyles} ref={cloneRef}>
-            {state.clone}
+          <div id="portalroot" style={{
+            ...cloneStyles,
+            visibility: state.dragged.isDragging ? "visible" : "hidden",
+          }} ref={cloneRef}>
+            <div style={{ flexShrink: 0, order: -1 }}>
+              {state.clone}
+            </div>
           </div>
           {renderPlaceholder && (
             <div ref={placeholderRef} style={PLACEHOLDER_STYLES}>
@@ -232,7 +237,7 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
             data-contextid="context"
             ref={localRef}
             onMouseDown={dragStart}
-            onTouchStart={dragStart}
+            onTouchStart={touchStart}
             style={{ ...TABLE_DEFAULT_STYLES, ...style }}
             className={`table ${className ?? ""}`}
           >

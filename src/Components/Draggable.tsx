@@ -1,5 +1,5 @@
 import React, { useMemo, memo, useRef, useEffect } from "react";
-import type { ReactElement, CSSProperties, ReactNode, MouseEvent } from "react";
+import type { ReactElement, CSSProperties, ReactNode } from "react";
 import { useTable } from "./TableContainer/useTable";
 import { isIndexOutOfRange } from "./utils";
 
@@ -75,7 +75,9 @@ const Draggable: React.FC<DraggableProps> = memo(({
     [disableDrag, isDragging]
   );
 
-  const onMouseDown = (_event: MouseEvent<HTMLDivElement>) => {
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    // Skip touch — touch drag clone is set via long-press in beginDrag
+    if (event.pointerType === "touch") return;
     if (disableDrag) return;
     requestAnimationFrame(() => {
       dispatch({
@@ -91,7 +93,7 @@ const Draggable: React.FC<DraggableProps> = memo(({
       data-id={id}
       data-index={index}
       data-type={type}
-      onMouseDown={onMouseDown}
+      onPointerDown={onPointerDown}
       data-disabled={disableDrag ? "true" : "false"}
       style={styles}
     >

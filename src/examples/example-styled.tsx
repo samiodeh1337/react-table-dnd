@@ -1,6 +1,7 @@
 /**
- * Example: Fully custom-styled table — dark theme, rounded rows, colored status badges.
- * Shows that every visual aspect is consumer-controlled.
+ * Example: Showcase — polished dark theme with status badges, score bars,
+ * avatar initials, role chips, gradient header, hover highlights, and
+ * a custom "Drop here" placeholder.
  */
 import React, { useCallback, useState, useMemo } from "react";
 import {
@@ -14,59 +15,116 @@ import {
 import { generateRows, arrayMove, Row } from "./example-data";
 
 const INIT_COLS = [
-  { id: "name", title: "Name", width: 170 },
-  { id: "role", title: "Role", width: 130 },
-  { id: "status", title: "Status", width: 120 },
-  { id: "department", title: "Dept", width: 130 },
-  { id: "location", title: "Location", width: 120 },
-  { id: "score", title: "Score", width: 90 },
+  { id: "name",       title: "Name",       width: 200 },
+  { id: "role",       title: "Role",       width: 130 },
+  { id: "status",     title: "Status",     width: 120 },
+  { id: "department", title: "Department", width: 140 },
+  { id: "score",      title: "Score",      width: 120 },
 ];
 
-const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
-  Active: { bg: "#064e3b", color: "#6ee7b7" },
-  Inactive: { bg: "#7f1d1d", color: "#fca5a5" },
-  "On Leave": { bg: "#78350f", color: "#fcd34d" },
-  Pending: { bg: "#1e3a5f", color: "#93c5fd" },
-  Terminated: { bg: "#4c1d95", color: "#c4b5fd" },
+const STATUS: Record<string, { bg: string; color: string; dot: string }> = {
+  Active:     { bg: "#052e1f", color: "#34d399", dot: "#10b981" },
+  Inactive:   { bg: "#2a1215", color: "#f87171", dot: "#ef4444" },
+  "On Leave": { bg: "#2a1f05", color: "#fbbf24", dot: "#f59e0b" },
+  Pending:    { bg: "#0c1a2e", color: "#60a5fa", dot: "#3b82f6" },
+  Terminated: { bg: "#1a0c2e", color: "#a78bfa", dot: "#8b5cf6" },
 };
 
+const ROLE_COLORS: Record<string, string> = {
+  Engineer: "#818cf8", Designer: "#f472b6", PM: "#34d399", QA: "#fbbf24",
+  DevOps: "#60a5fa", Analyst: "#fb923c", Lead: "#a78bfa", Manager: "#2dd4bf",
+};
+
+const AVATAR_COLORS = ["#6366f1", "#ec4899", "#14b8a6", "#f59e0b", "#8b5cf6", "#06b6d4", "#f43f5e", "#22c55e"];
+
 const th: React.CSSProperties = {
-  display: "flex", alignItems: "center", height: 44, padding: "0 16px",
-  fontSize: 11, fontWeight: 700, color: "#9ca3af", background: "#111827",
-  borderBottom: "1px solid #374151", textTransform: "uppercase", letterSpacing: "0.08em",
+  display: "flex", alignItems: "center", height: 48, padding: "0 18px",
+  fontSize: 11, fontWeight: 700, color: "#64748b",
+  background: "linear-gradient(180deg, #0f172a 0%, #1e293b 100%)",
+  borderBottom: "1px solid #334155", textTransform: "uppercase",
+  letterSpacing: "0.08em",
 };
 
 const td: React.CSSProperties = {
-  height: 44, padding: "0 16px", fontSize: 13, color: "#e5e7eb",
-  background: "#1f2937", borderBottom: "1px solid #374151",
-  display: "flex", alignItems: "center",
+  height: 52, padding: "0 18px", fontSize: 13, color: "#e2e8f0",
+  display: "flex", alignItems: "center", borderBottom: "1px solid #1e293b",
 };
 
-const tdEven: React.CSSProperties = { ...td, background: "#111827" };
+const Avatar = ({ name, index }: { name: string; index: number }) => {
+  const initials = name.split(" ").map((n) => n[0]).join("");
+  const bg = AVATAR_COLORS[index % AVATAR_COLORS.length];
+  return (
+    <div style={{
+      width: 32, height: 32, borderRadius: 8, background: bg,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0,
+      marginRight: 10,
+    }}>
+      {initials}
+    </div>
+  );
+};
 
 const StatusBadge = ({ status }: { status: string }) => {
-  const c = STATUS_COLORS[status] ?? { bg: "#374151", color: "#9ca3af" };
+  const s = STATUS[status] ?? { bg: "#1e293b", color: "#94a3b8", dot: "#64748b" };
   return (
     <span style={{
-      display: "inline-flex", padding: "2px 10px", borderRadius: 99,
-      fontSize: 11, fontWeight: 600, background: c.bg, color: c.color,
+      display: "inline-flex", alignItems: "center", gap: 6,
+      padding: "3px 10px", borderRadius: 99, fontSize: 12, fontWeight: 500,
+      background: s.bg, color: s.color,
     }}>
+      <span style={{ width: 6, height: 6, borderRadius: 99, background: s.dot }} />
       {status}
     </span>
   );
 };
 
-const ScoreBar = ({ score }: { score: number }) => (
-  <div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
-    <div style={{ flex: 1, height: 6, borderRadius: 3, background: "#374151", overflow: "hidden" }}>
-      <div style={{ width: `${score}%`, height: "100%", borderRadius: 3, background: score > 70 ? "#10b981" : score > 40 ? "#f59e0b" : "#ef4444" }} />
+const RoleChip = ({ role }: { role: string }) => {
+  const color = ROLE_COLORS[role] ?? "#94a3b8";
+  return (
+    <span style={{
+      display: "inline-flex", padding: "2px 10px", borderRadius: 6,
+      fontSize: 12, fontWeight: 500, color,
+      background: `${color}18`, border: `1px solid ${color}30`,
+    }}>
+      {role}
+    </span>
+  );
+};
+
+const ScoreBar = ({ score }: { score: number }) => {
+  const color = score > 70 ? "#10b981" : score > 40 ? "#f59e0b" : "#ef4444";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
+      <div style={{ flex: 1, height: 6, borderRadius: 99, background: "#1e293b", overflow: "hidden" }}>
+        <div style={{
+          width: `${score}%`, height: "100%", borderRadius: 99,
+          background: `linear-gradient(90deg, ${color}88, ${color})`,
+          transition: "width 0.3s",
+        }} />
+      </div>
+      <span style={{ fontSize: 12, fontWeight: 600, color, minWidth: 28, textAlign: "right" }}>{score}</span>
     </div>
-    <span style={{ fontSize: 11, color: "#9ca3af", minWidth: 24 }}>{score}</span>
+  );
+};
+
+const Placeholder = () => (
+  <div style={{
+    width: "100%", height: "100%",
+    background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+    border: "2px dashed #6366f1", borderRadius: 8,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    gap: 8, fontSize: 13, color: "#818cf8", fontWeight: 600,
+  }}>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+    Drop here
   </div>
 );
 
-const CustomStyledExample = () => {
-  const [data, setData] = useState(() => generateRows(100));
+const ShowcaseExample = () => {
+  const [data, setData] = useState(() => generateRows(80));
   const [cols, setCols] = useState(INIT_COLS);
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), []);
 
@@ -78,35 +136,39 @@ const CustomStyledExample = () => {
     }, []
   );
 
-  const renderCell = (row: Row, colId: string) => {
-    if (colId === "status") return <StatusBadge status={row.status} />;
-    if (colId === "score") return <ScoreBar score={row.score} />;
-    return row[colId];
+  const renderCell = (row: Row, colId: string, ri: number) => {
+    if (colId === "name") return <><Avatar name={String(row.name)} index={ri} /><span style={{ fontWeight: 500 }}>{row.name}</span></>;
+    if (colId === "role") return <RoleChip role={String(row.role)} />;
+    if (colId === "status") return <StatusBadge status={String(row.status)} />;
+    if (colId === "score") return <ScoreBar score={Number(row.score)} />;
+    return <span style={{ color: "#94a3b8" }}>{row[colId]}</span>;
   };
 
   return (
-    <div style={{ width: "100%", background: "#0f172a", borderRadius: 12, padding: 16 }}>
-      <h3 style={{ margin: "0 0 12px", color: "#f8fafc", fontWeight: 600, fontSize: 14 }}>Dark Theme — {data.length} rows</h3>
+    <div style={{ width: "100%" }}>
       <TableContainer
         options={options} onDragEnd={handleDragEnd}
-        renderPlaceholder={() => (
-          <div style={{ width: "100%", height: "100%", background: "#1e293b", border: "2px dashed #6366f1", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#818cf8", fontWeight: 600 }}>
-            Drop here
-          </div>
-        )}
-        style={{ height: 420, border: "1px solid #374151", borderRadius: 8, overflow: "hidden" }}
+        renderPlaceholder={() => <Placeholder />}
+        style={{
+          height: 460, borderRadius: 12, overflow: "hidden",
+          border: "1px solid #1e293b", background: "#0f172a",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
+        }}
       >
         <TableHeader>
           {cols.map((col, i) => (
-            <ColumnCell key={col.id} id={col.id} index={i} width={col.width} style={th}>{col.title}</ColumnCell>
+            <ColumnCell key={col.id} id={col.id} index={i} width={col.width} style={th}>
+              {col.title}
+            </ColumnCell>
           ))}
         </TableHeader>
         <TableBody>
           {data.map((row, ri) => (
             <BodyRow key={row.id} id={row.id} index={ri}>
               {cols.map((col, ci) => (
-                <RowCell key={col.id} index={ci} style={ri % 2 === 0 ? td : tdEven}>
-                  {renderCell(row, col.id)}
+                <RowCell key={col.id} index={ci} width={col.width}
+                  style={{ ...td, background: ri % 2 === 0 ? "#0f172a" : "#131c2e" }}>
+                  {renderCell(row, col.id, ri)}
                 </RowCell>
               ))}
             </BodyRow>
@@ -117,4 +179,4 @@ const CustomStyledExample = () => {
   );
 };
 
-export default CustomStyledExample;
+export default ShowcaseExample;
