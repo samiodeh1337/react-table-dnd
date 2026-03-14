@@ -8,18 +8,16 @@ import {
 } from "../Components/utils";
 
 const TRANSITION_STYLE = "all 450ms cubic-bezier(0.2, 0, 0, 1)";
-const LONG_PRESS_DELAY = 300; // ms before touch starts a drag
-const LONG_PRESS_MOVE_THRESHOLD = 8; // px — cancel long press if finger moves more
+const LONG_PRESS_DELAY = 300;
+const LONG_PRESS_MOVE_THRESHOLD = 8;
 
 const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDragEnd) => {
   const {
     startAutoScroll,
     stopAutoScroll,
-    isAutoScrollingHorizontal,
-    isAutoScrollingVertical,
+    pointerRef,
   } = useAutoScroll(refs);
 
-  // Cached rects computed once at drag start
   const cachedItemsRef = useRef(null);
   const cachedContainerRef = useRef(null);
   const dragTypeRef = useRef(null);
@@ -27,17 +25,19 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
   const sourceIndexRef = useRef(null);
   const targetIndexRef = useRef(null);
   const draggedSizeRef = useRef({ width: 0, height: 0 });
+  const lastClientRef = useRef({ x: 0, y: 0 });
 
   // Long-press state for touch
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartPosRef = useRef({ x: 0, y: 0 });
   const pendingTouchEventRef = useRef(null);
-  const isTouchActiveRef = useRef(false); // true while touch interaction is happening
+  const isTouchActiveRef = useRef(false);
   const touchMoveBeforeDragRef = useRef<any>(null);
   const touchEndBeforeDragRef = useRef<any>(null);
 
-  // Use querySelectorAll — works with virtualized containers where
-  // rows aren't direct children of the scroll container
+  // Pointer capture for guaranteed pointermove delivery
+  const capturedPointerIdRef = useRef<number | null>(null);
+
   const computeRowItems = useCallback(() => {
     const body = refs.bodyRef.current;
     if (!body) return null;
@@ -87,7 +87,6 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
       })
       .filter((item) => item.index !== undefined);
 
-    // Filter by drag range (same approach as rows — filter, don't slice)
     const start = options.columnDragRange?.start;
     const end = options.columnDragRange?.end;
     if (start !== undefined || end !== undefined) {
@@ -100,9 +99,6 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
     return items;
   }, [refs.headerRef, options.columnDragRange]);
 
-  // Position the placeholder element at the gap left by shifted items.
-  // The outer .draggable div has no transform (only its inner child shifts),
-  // so getBoundingClientRect() gives the ORIGINAL position — which IS the gap.
   const positionPlaceholder = useCallback((targetEl, sourceIndex, targetIndex, currentDragType) => {
     const ph = refs.placeholderRef?.current;
     if (!ph || !targetEl) {
@@ -115,19 +111,17 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
 
     ph.style.display = "block";
 
-    // When moving right/down, items shift left/up by size.width/height.
-    // The gap opens at the END of the target's original bounds, offset
-    // back by the dragged item's size. When moving left/up, gap is at
-    // the target's original position.
     const movingForward = sourceIndex < targetIndex;
 
     if (currentDragType === "row") {
+      const tableEl = refs.tableRef?.current;
+      const tableRect = tableEl?.getBoundingClientRect();
       const gapTop = movingForward
         ? rect.top + rect.height - size.height
         : rect.top;
       ph.style.top = `${gapTop}px`;
-      ph.style.left = `${rect.left}px`;
-      ph.style.width = `${rect.width}px`;
+      ph.style.left = `${tableRect?.left ?? rect.left}px`;
+      ph.style.width = `${tableRect?.width ?? rect.width}px`;
       ph.style.height = `${size.height}px`;
     } else {
       const tableEl = refs.tableRef?.current;
@@ -142,12 +136,10 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
     }
   }, [refs.placeholderRef, refs.tableRef]);
 
-  // Apply shift transforms directly on DOM elements — bypasses React entirely
   const applyShiftTransforms = useCallback((sourceIndex, targetIndex, currentDragType) => {
     if (sourceIndex === null || targetIndex === null) return;
 
     const size = draggedSizeRef.current;
-
     let targetEl = null;
 
     if (currentDragType === "row") {
@@ -167,8 +159,6 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
           shift = `translateY(${size.height}px)`;
         }
         inner.style.transform = shift;
-        // Always keep transition on non-source items so they animate
-        // both into AND out of their shifted position
         inner.style.transition = idx === sourceIndex ? "none" : TRANSITION_STYLE;
 
         if (idx === targetIndex) {
@@ -225,11 +215,8 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
       }
     }
 
-    // Position the custom placeholder at the gap.
-    // Always show it — even when source === target the source item is
-    // opacity:0 so there's a visible gap that the placeholder fills.
     positionPlaceholder(targetEl, sourceIndex, targetIndex, currentDragType);
-  }, [refs.bodyRef, refs.headerRef, refs.placeholderRef, positionPlaceholder]);
+  }, [refs.bodyRef, refs.headerRef, positionPlaceholder]);
 
   const clearShiftTransforms = useCallback(() => {
     const ph = refs.placeholderRef?.current;
@@ -266,11 +253,9 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
     }
   }, [refs.bodyRef, refs.headerRef]);
 
-  // Core drag initiation logic (shared by mouse and touch-after-long-press)
+  // ── Core drag initiation ──────────────────────────────
   const beginDrag = useCallback(
     (e, clientX, clientY) => {
-      // Walk up from click target to find the draggable element.
-      // Track whether we passed through a drag handle along the way.
       let foundHandle = false;
       const getDraggableElement = (element) => {
         while (element) {
@@ -285,8 +270,6 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
 
       const draggableElement = getDraggableElement(e.target);
       if (!draggableElement) return;
-
-      // If this draggable contains a DragHandle, only allow drag from the handle
       if (!foundHandle && draggableElement.querySelector("[data-drag-handle]")) return;
 
       const id = draggableElement.dataset.id;
@@ -297,8 +280,7 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
       sourceIndexRef.current = sourceIndex;
       targetIndexRef.current = null;
 
-      // For touch, Draggable's onPointerDown skips touch pointerType.
-      // Dispatch a synthetic pointer event so it sets the clone content.
+      // For touch, Draggable's onPointerDown skips touch — dispatch synthetic event
       if (isTouch) {
         draggableElement.dispatchEvent(
           new PointerEvent("pointerdown", { bubbles: true, pointerType: "mouse" })
@@ -316,41 +298,35 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
         y: clientY - itemRect.top,
       };
       initialRef.current = initial;
+      lastClientRef.current = { x: clientX, y: clientY };
+      pointerRef.current = { x: clientX, y: clientY };
 
       const translate = {
         x: itemRect.left + scrollOffset,
         y: itemRect.top,
       };
 
-      // Pre-compute item rects for binary search during drag
       if (dragtype === "row") {
         cachedItemsRef.current = computeRowItems();
       } else {
         cachedItemsRef.current = computeColumnItems();
       }
 
-      // Cache container rect
       const refContainer = refs.bodyRef.current;
       if (refContainer) {
         cachedContainerRef.current = refContainer.getBoundingClientRect();
       }
 
-      // Set initial clone position directly via DOM
       const cloneEl = refs.cloneRef?.current;
       if (cloneEl) {
         cloneEl.style.transform = `translate(${translate.x}px, ${translate.y}px)`;
       }
 
-      // Prevent page scroll on touch during drag
       const tableEl = refs.tableRef?.current;
       if (tableEl) {
         tableEl.style.touchAction = "none";
       }
 
-      // Dispatch synchronously — React 18+ batches automatically.
-      // Using rAF here caused a race: quick click → mouseup fires before
-      // rAF → dragEnd runs first → then rAF sets isDragging=true with
-      // no mouseup listener to ever clear it → row stuck invisible.
       dispatch({
         type: "dragStart",
         value: {
@@ -369,8 +345,7 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
         },
       });
 
-      // After React renders the clone content, sync scroll position
-      requestAnimationFrame(() => {
+      const syncCloneScroll = () => {
         const cloneEl = refs.cloneRef?.current;
         const body = refs.bodyRef.current;
         if (cloneEl && body) {
@@ -378,27 +353,30 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
             cloneEl.scrollLeft = body.scrollLeft;
           } else if (dragtype === "column") {
             const cloneBody = cloneEl.querySelector('.clone-body');
-            if (cloneBody) {
-              cloneBody.scrollTop = body.scrollTop;
-            }
+            if (cloneBody) cloneBody.scrollTop = body.scrollTop;
           }
         }
+      };
+      syncCloneScroll();
+      requestAnimationFrame(() => {
+        syncCloneScroll();
+        requestAnimationFrame(syncCloneScroll);
       });
     },
-    [dispatch, refs, computeRowItems, computeColumnItems]
+    [refs.bodyRef, refs.cloneRef, refs.tableRef, pointerRef, dispatch, computeRowItems, computeColumnItems]
   );
 
-  // Mouse: start drag immediately (skip synthetic mousedown from touch)
+  // ── Mouse: start drag immediately ─────────────────────
   const dragStart = useCallback(
     (e) => {
       if (e.target === e.currentTarget) return;
-      if (isTouchActiveRef.current) return; // ignore synthetic mousedown from touch
+      if (isTouchActiveRef.current) return;
       beginDrag(e, e.clientX, e.clientY);
     },
     [beginDrag]
   );
 
-  // Cancel any pending long-press timer and remove pre-drag listeners
+  // ── Long-press for touch ──────────────────────────────
   const cancelLongPress = useCallback(() => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
@@ -409,7 +387,6 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
     window.removeEventListener("touchend", touchEndBeforeDragRef.current);
   }, []);
 
-  // Touch: start long-press timer
   const touchStart = useCallback(
     (e) => {
       if (e.target === e.currentTarget) return;
@@ -420,8 +397,6 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
       touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
       pendingTouchEventRef.current = e;
 
-      // Attach pre-drag listeners immediately (not via useEffect) so they
-      // can cancel the long press if the finger moves or lifts
       const onMove = (ev: TouchEvent) => {
         const t = ev.touches[0];
         const dx = t.clientX - touchStartPosRef.current.x;
@@ -442,7 +417,6 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
 
       longPressTimerRef.current = setTimeout(() => {
         longPressTimerRef.current = null;
-        // Remove pre-drag listeners — drag listeners take over
         window.removeEventListener("touchmove", onMove);
         window.removeEventListener("touchend", onEnd);
         const saved = pendingTouchEventRef.current;
@@ -455,6 +429,12 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
     [beginDrag, cancelLongPress]
   );
 
+  // ── Capture pointer ID on pointerdown ─────────────────
+  const onPointerDown = useCallback((e: any) => {
+    capturedPointerIdRef.current = e.pointerId ?? null;
+  }, []);
+
+  // ── Drag end ──────────────────────────────────────────
   const dragEnd = useCallback(() => {
     cancelLongPress();
     setTimeout(() => { isTouchActiveRef.current = false; }, 400);
@@ -466,23 +446,19 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
     cachedItemsRef.current = null;
     cachedContainerRef.current = null;
 
-    // Reset clone position and scroll
     const cloneEl = refs.cloneRef?.current;
     if (cloneEl) {
       cloneEl.style.transform = `translate(0px, 0px)`;
       cloneEl.scrollLeft = 0;
     }
 
-    // Restore touch-action
     const tableEl = refs.tableRef?.current;
     if (tableEl) {
       tableEl.style.touchAction = "";
     }
 
-    // Clear all DOM shift transforms
     clearShiftTransforms();
 
-    // Call consumer callback before resetting state
     if (onDragEnd && finalSource !== null && finalTarget !== null && finalDragType) {
       onDragEnd({
         sourceIndex: finalSource,
@@ -491,9 +467,6 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
       });
     }
 
-    // Dispatch synchronously — no rAF. This ensures React re-renders in
-    // the same frame as the DOM cleanup above, so the browser never paints
-    // the intermediate state (no ghost).
     dispatch({
       type: "dragEnd",
       value: {
@@ -508,10 +481,8 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
     targetIndexRef.current = null;
   }, [dispatch, stopAutoScroll, refs.cloneRef, refs.tableRef, clearShiftTransforms, cancelLongPress, onDragEnd]);
 
-  // Re-apply shifts when scroll container scrolls during drag
-  // Handles virtual recycling: new DOM elements entering the viewport need shifts
+  // ── Scroll handler during drag ────────────────────────
   const handleScrollDuringDrag = useCallback(() => {
-    // Invalidate cached rects since scroll changed positions
     cachedItemsRef.current = null;
     cachedContainerRef.current = null;
 
@@ -521,50 +492,90 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
     if (src !== null && tgt !== null) {
       applyShiftTransforms(src, tgt, dtype);
     }
-  }, [applyShiftTransforms]);
 
-  const drag = useCallback(
-    (e) => {
-      e.stopPropagation();
+    // Sync clone scroll
+    const cloneEl = refs.cloneRef?.current;
+    const body = refs.bodyRef?.current;
+    if (cloneEl && body) {
+      if (dtype === "row") {
+        cloneEl.scrollLeft = body.scrollLeft;
+      } else if (dtype === "column") {
+        const cloneBody = cloneEl.querySelector('.clone-body');
+        if (cloneBody) cloneBody.scrollTop = body.scrollTop;
+      }
+    }
 
-      const initial = initialRef.current;
-      let tx, ty;
-      if (e.type === "touchmove") {
-        tx = e.touches[0].clientX - initial.x;
-        ty = e.touches[0].clientY - initial.y;
-      } else {
-        tx = e.clientX - initial.x;
-        ty = e.clientY - initial.y;
+    // Re-compute drop index using last pointer position
+    const refContainer = refs.bodyRef?.current;
+    if (refContainer && dtype) {
+      const last = lastClientRef.current;
+      let containerRect = cachedContainerRef.current;
+      if (!containerRect) {
+        containerRect = refContainer.getBoundingClientRect();
+        cachedContainerRef.current = containerRect;
       }
 
-      // Move clone directly via DOM — zero React overhead
+      let dropIndex = 0;
+      if (dtype === "row") {
+        let items = cachedItemsRef.current;
+        if (!items) {
+          items = computeRowItems();
+          cachedItemsRef.current = items;
+        }
+        if (items && items.length > 0) {
+          dropIndex = binarySearchDropIndex(
+            last.y - containerRect.top + refContainer.scrollTop,
+            items
+          );
+        }
+      } else {
+        let items = cachedItemsRef.current;
+        if (!items) {
+          items = computeColumnItems();
+          cachedItemsRef.current = items;
+        }
+        if (items && items.length > 0) {
+          dropIndex = binarySearchDropIndexHeader(last.x, items);
+        }
+      }
+
+      if (dropIndex !== targetIndexRef.current) {
+        targetIndexRef.current = dropIndex;
+        applyShiftTransforms(src, dropIndex, dtype);
+      }
+    }
+  }, [applyShiftTransforms, refs.cloneRef, refs.bodyRef, computeRowItems, computeColumnItems]);
+
+  // ── Drag (pointermove handler) ────────────────────────
+  const drag = useCallback(
+    (e) => {
+      const clientX = e.clientX ?? 0;
+      const clientY = e.clientY ?? 0;
+
+      const initial = initialRef.current;
+      const tx = clientX - initial.x;
+      const ty = clientY - initial.y;
+
+      lastClientRef.current = { x: clientX, y: clientY };
+      pointerRef.current = { x: clientX, y: clientY };
+
       const cloneEl = refs.cloneRef?.current;
       if (cloneEl) {
         cloneEl.style.transform = `translate(${tx}px, ${ty}px)`;
 
-        // Sync clone scroll with table body so the visible portion matches
         const body = refs.bodyRef.current;
         if (body) {
           if (dragTypeRef.current === "row") {
             cloneEl.scrollLeft = body.scrollLeft;
           } else if (dragTypeRef.current === "column") {
-            // Sync the portal body's scrollTop (not the portalroot — that
-            // would scroll the header away). Target the .clone-body wrapper.
             const cloneBody = cloneEl.querySelector('.clone-body');
-            if (cloneBody) {
-              cloneBody.scrollTop = body.scrollTop;
-            }
+            if (cloneBody) cloneBody.scrollTop = body.scrollTop;
           }
         }
       }
 
-      isAutoScrollingVertical.current = false;
-      isAutoScrollingHorizontal.current = false;
-
       const refContainer = refs.bodyRef.current;
       if (!refContainer) return;
-      const clientX = e.type === "touchmove" ? e.touches[0].clientX : e.clientX;
-      const clientY = e.type === "touchmove" ? e.touches[0].clientY : e.clientY;
 
       let containerRect = cachedContainerRef.current;
       if (!containerRect) {
@@ -624,7 +635,6 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
         }
       }
 
-      // Apply DOM shifts when targetIndex changes — zero React dispatches
       if (dropIndex !== targetIndexRef.current) {
         targetIndexRef.current = dropIndex;
         requestAnimationFrame(() => {
@@ -632,21 +642,10 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
         });
       }
     },
-    [
-      dragType,
-      isAutoScrollingHorizontal,
-      isAutoScrollingVertical,
-      refs.bodyRef,
-      refs.cloneRef,
-      computeRowItems,
-      computeColumnItems,
-      startAutoScroll,
-      stopAutoScroll,
-      applyShiftTransforms,
-    ]
+    [pointerRef, refs.cloneRef, refs.bodyRef, dragType, computeRowItems, startAutoScroll, stopAutoScroll, computeColumnItems, applyShiftTransforms]
   );
 
-  // Cancel drag on Escape key
+  // ── Drag cancel (Escape) ──────────────────────────────
   const dragCancel = useCallback(() => {
     cancelLongPress();
     cachedItemsRef.current = null;
@@ -659,9 +658,7 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
     }
 
     const tableEl = refs.tableRef?.current;
-    if (tableEl) {
-      tableEl.style.touchAction = "";
-    }
+    if (tableEl) tableEl.style.touchAction = "";
 
     clearShiftTransforms();
 
@@ -680,44 +677,53 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
     if (e.key === "Escape") dragCancel();
   }, [dragCancel]);
 
-  // Prevent page scroll during active touch drag
-  const touchMoveDuringDrag = useCallback(
-    (e) => {
-      e.preventDefault(); // block page scroll
-      drag(e);
-    },
-    [drag]
-  );
-
+  // ── Event listeners while dragging ────────────────────
   useEffect(() => {
     if (dragged.isDragging) {
       const body = refs.bodyRef.current;
+      const tableEl = refs.tableRef?.current;
 
-      window.addEventListener("mousemove", drag, { passive: true });
-      window.addEventListener("touchmove", touchMoveDuringDrag, { passive: false });
-      window.addEventListener("touchend", dragEnd, false);
+      // Pointer capture guarantees pointermove delivery on mobile
+      if (tableEl && capturedPointerIdRef.current !== null) {
+        try { tableEl.setPointerCapture(capturedPointerIdRef.current); } catch (_) {}
+      }
+
+      const onPointerMove = (e: PointerEvent) => {
+        if (e.pointerType === "touch") e.preventDefault();
+        drag(e);
+      };
+      const onPointerUp = () => dragEnd();
+      const onPointerCancel = () => dragEnd();
+
+      if (tableEl) {
+        tableEl.addEventListener("pointermove", onPointerMove, { passive: false });
+        tableEl.addEventListener("pointerup", onPointerUp);
+        tableEl.addEventListener("pointercancel", onPointerCancel);
+      }
+
       window.addEventListener("mouseup", dragEnd, false);
       window.addEventListener("keydown", handleKeyDown);
-
-      // Re-apply shifts on scroll (handles virtual recycling)
       body?.addEventListener("scroll", handleScrollDuringDrag, { passive: true });
 
       return () => {
-        window.removeEventListener("mousemove", drag);
-        window.removeEventListener("touchmove", touchMoveDuringDrag);
-        window.removeEventListener("touchend", dragEnd, false);
+        if (tableEl) {
+          tableEl.removeEventListener("pointermove", onPointerMove);
+          tableEl.removeEventListener("pointerup", onPointerUp);
+          tableEl.removeEventListener("pointercancel", onPointerCancel);
+          if (capturedPointerIdRef.current !== null) {
+            try { tableEl.releasePointerCapture(capturedPointerIdRef.current); } catch (_) {}
+            capturedPointerIdRef.current = null;
+          }
+          tableEl.style.touchAction = "";
+        }
         window.removeEventListener("mouseup", dragEnd, false);
         window.removeEventListener("keydown", handleKeyDown);
         body?.removeEventListener("scroll", handleScrollDuringDrag);
-
-        // Safety: ensure touch-action is restored if effect cleans up unexpectedly
-        const tableEl = refs.tableRef?.current;
-        if (tableEl) tableEl.style.touchAction = "";
       };
     }
-  }, [dragged.isDragging, drag, touchMoveDuringDrag, dragEnd, dragCancel, handleKeyDown, handleScrollDuringDrag, refs.bodyRef, refs.tableRef]);
+  }, [dragged.isDragging, drag, dragEnd, dragCancel, handleKeyDown, handleScrollDuringDrag, refs.bodyRef, refs.tableRef]);
 
-  return { dragStart, touchStart };
+  return { dragStart, touchStart, onPointerDown };
 };
 
 export default useDragContextEvents;

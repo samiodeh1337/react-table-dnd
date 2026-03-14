@@ -6,57 +6,83 @@ interface Refs {
   headerRef: MutableRefObject<HTMLDivElement> | null;
 }
 
+const EDGE_ZONE = 30; // px from edge to trigger auto-scroll
+
 const useAutoScroll = (refs: Refs) => {
   const isAutoScrollingHorizontal = useRef(false);
   const isAutoScrollingVertical = useRef(false);
   const decaySpeed = useRef(0);
   const animationFrameRef = useRef<number | null>(null);
 
-  const autoScroll = useCallback((speed: number, ref: HTMLDivElement, dir: "horizontal" | "vertical") => {
-    const isVerticalScroll = dir === "vertical";
-    const minScroll = 0;
-    const maxScroll = isVerticalScroll
-      ? ref.scrollHeight - ref.clientHeight
-      : ref.scrollWidth - ref.clientWidth;
-
-    if (isVerticalScroll) {
-      ref.scrollTop += speed;
-    } else {
-      ref.scrollLeft += speed;
-    }
-
-    if ((isVerticalScroll && (ref.scrollTop >= maxScroll || ref.scrollTop <= minScroll)) ||
-      (!isVerticalScroll && (ref.scrollLeft >= maxScroll || ref.scrollLeft <= minScroll))) {
-      if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current);
-    } else if (isAutoScrollingVertical.current || isAutoScrollingHorizontal.current) {
-      animationFrameRef.current = requestAnimationFrame(() => autoScroll(speed + decaySpeed.current, ref, dir));
-      decaySpeed.current += speed / 1000;
-    } else {
-      if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current);
-    }
-  }, []);
-
-  const startAutoScroll = useCallback((speed: number, ref: HTMLDivElement, dir: "horizontal" | "vertical") => {
-    const isVerticalScroll = dir === "vertical";
-    // FIX: was || (OR) — should be && (AND). With OR, auto-scroll
-    // wouldn't start if either direction was already scrolling.
-    if (!isAutoScrollingVertical.current && !isAutoScrollingHorizontal.current) {
-      if (isVerticalScroll) {
-        isAutoScrollingVertical.current = true;
-      } else {
-        isAutoScrollingHorizontal.current = true;
-      }
-
-      decaySpeed.current = 0;
-      autoScroll(speed, ref, dir);
-    }
-  }, [autoScroll]);
+  // Pointer position ref — updated externally by drag handler
+  const pointerRef = useRef({ x: 0, y: 0 });
 
   const stopAutoScroll = useCallback(() => {
     isAutoScrollingVertical.current = false;
     isAutoScrollingHorizontal.current = false;
-    if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current);
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
   }, []);
+
+  const autoScroll = useCallback((speed: number, ref: HTMLDivElement, dir: "horizontal" | "vertical") => {
+    const isVertical = dir === "vertical";
+    const flag = isVertical ? isAutoScrollingVertical : isAutoScrollingHorizontal;
+
+    if (!flag.current) return;
+
+    // Check if pointer is still in edge zone — stop if not
+    const rect = ref.getBoundingClientRect();
+    const ptr = pointerRef.current;
+    if (isVertical) {
+      const inTopEdge = ptr.y < rect.top + EDGE_ZONE;
+      const inBottomEdge = ptr.y > rect.bottom - EDGE_ZONE;
+      if (!inTopEdge && !inBottomEdge) {
+        flag.current = false;
+        return;
+      }
+    } else {
+      const inLeftEdge = ptr.x < rect.left + EDGE_ZONE;
+      const inRightEdge = ptr.x > rect.right - EDGE_ZONE;
+      if (!inLeftEdge && !inRightEdge) {
+        flag.current = false;
+        return;
+      }
+    }
+
+    // Scroll
+    const maxScroll = isVertical
+      ? ref.scrollHeight - ref.clientHeight
+      : ref.scrollWidth - ref.clientWidth;
+
+    if (isVertical) ref.scrollTop += speed;
+    else ref.scrollLeft += speed;
+
+    // Hit boundary — stop
+    const pos = isVertical ? ref.scrollTop : ref.scrollLeft;
+    if (pos >= maxScroll || pos <= 0) {
+      flag.current = false;
+      return;
+    }
+
+    // Continue
+    decaySpeed.current += speed / 1000;
+    animationFrameRef.current = requestAnimationFrame(() =>
+      autoScroll(speed + decaySpeed.current, ref, dir)
+    );
+  }, []);
+
+  const startAutoScroll = useCallback((speed: number, ref: HTMLDivElement, dir: "horizontal" | "vertical") => {
+    const isVertical = dir === "vertical";
+    const flag = isVertical ? isAutoScrollingVertical : isAutoScrollingHorizontal;
+
+    if (!flag.current) {
+      flag.current = true;
+      decaySpeed.current = 0;
+      autoScroll(speed, ref, dir);
+    }
+  }, [autoScroll]);
 
   const BodyScrollHandle = useCallback<React.UIEventHandler<HTMLDivElement>>((e) => {
     if (refs.headerRef?.current && e.currentTarget) {
@@ -75,6 +101,7 @@ const useAutoScroll = (refs: Refs) => {
     stopAutoScroll,
     isAutoScrollingHorizontal,
     isAutoScrollingVertical,
+    pointerRef,
     BodyScrollHandle,
     HeaderScrollHandle,
   };
