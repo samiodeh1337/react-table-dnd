@@ -18,21 +18,40 @@ Peer dependencies: `react` and `react-dom` >= 17.0.0
 ## Quick Start
 
 ```jsx
+import { useState } from "react";
 import {
   TableContainer, TableHeader, ColumnCell,
   TableBody, BodyRow, RowCell,
 } from "flexitablesort";
 
+const INIT_COLS = [
+  { id: "name", label: "Name",  width: 150 },
+  { id: "age",  label: "Age",   width: 100 },
+  { id: "email",label: "Email", width: 200 },
+];
+
+const INIT_ROWS = [
+  { id: "1", name: "Alice", age: 28, email: "alice@example.com" },
+  { id: "2", name: "Bob",   age: 34, email: "bob@example.com" },
+  { id: "3", name: "Carol", age: 22, email: "carol@example.com" },
+];
+
+function arrayMove(arr, from, to) {
+  const next = [...arr];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
 function MyTable() {
-  const [rows, setRows] = useState(data);
-  const [cols, setCols] = useState(columns);
+  const [cols, setCols] = useState(INIT_COLS);
+  const [rows, setRows] = useState(INIT_ROWS);
 
   const handleDragEnd = ({ sourceIndex, targetIndex, dragType }) => {
-    if (dragType === "row") {
-      const next = [...rows];
-      const [moved] = next.splice(sourceIndex, 1);
-      next.splice(targetIndex, 0, moved);
-      setRows(next);
+    if (dragType === "column") {
+      setCols(arrayMove(cols, sourceIndex, targetIndex));
+    } else {
+      setRows(arrayMove(rows, sourceIndex, targetIndex));
     }
   };
 
@@ -40,8 +59,8 @@ function MyTable() {
     <TableContainer onDragEnd={handleDragEnd}>
       <TableHeader>
         {cols.map((col, i) => (
-          <ColumnCell key={col.id} id={col.id} index={i} width={150}>
-            {col.title}
+          <ColumnCell key={col.id} id={col.id} index={i} width={col.width}>
+            {col.label}
           </ColumnCell>
         ))}
       </TableHeader>
@@ -49,7 +68,7 @@ function MyTable() {
         {rows.map((row, ri) => (
           <BodyRow key={row.id} id={row.id} index={ri}>
             {cols.map((col, ci) => (
-              <RowCell key={col.id} index={ci} width={150}>
+              <RowCell key={col.id} index={ci} width={col.width}>
                 {row[col.id]}
               </RowCell>
             ))}

@@ -10,6 +10,10 @@ import CustomStyledExample from "./examples/example-styled";
 import VirtualExample from "./examples/example-virtual";
 import StylingExample from "./examples/example-styling";
 import DragHandleExample from "./examples/example-handle";
+import {
+  TableContainer as _TC, TableHeader as _TH, ColumnCell as _CC,
+  TableBody as _TB, BodyRow as _BR, RowCell as _RC,
+} from "./Components";
 import "./docs.css";
 
 // Raw source imports for code preview (TSX — from real example files)
@@ -58,44 +62,59 @@ const EXAMPLES = [
 
 const INSTALL_CMD = "npm install flexitablesort";
 
-const BASIC_USAGE = `import {
+const BASIC_USAGE = `import { useState } from "react";
+import {
   TableContainer, TableHeader, ColumnCell,
   TableBody, BodyRow, RowCell,
 } from "flexitablesort";
 
+const INIT_COLS = [
+  { id: "name", label: "Name",  width: 150 },
+  { id: "age",  label: "Age",   width: 100 },
+  { id: "email",label: "Email", width: 200 },
+];
+
+const INIT_ROWS = [
+  { id: "1", name: "Alice", age: 28, email: "alice@example.com" },
+  { id: "2", name: "Bob",   age: 34, email: "bob@example.com" },
+  { id: "3", name: "Carol", age: 22, email: "carol@example.com" },
+];
+
+function arrayMove(arr, from, to) {
+  const next = [...arr];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
 function MyTable() {
-  const [columns, setColumns] = useState(["Name", "Age", "Email"]);
-  const [rows, setRows] = useState([
-    ["Alice", 28, "alice@example.com"],
-    ["Bob",   34, "bob@example.com"],
-  ]);
+  const [cols, setCols] = useState(INIT_COLS);
+  const [rows, setRows] = useState(INIT_ROWS);
 
   const handleDragEnd = ({ sourceIndex, targetIndex, dragType }) => {
     if (dragType === "column") {
-      const next = [...columns];
-      const [moved] = next.splice(sourceIndex, 1);
-      next.splice(targetIndex, 0, moved);
-      setColumns(next);
+      setCols(arrayMove(cols, sourceIndex, targetIndex));
     } else {
-      const next = [...rows];
-      const [moved] = next.splice(sourceIndex, 1);
-      next.splice(targetIndex, 0, moved);
-      setRows(next);
+      setRows(arrayMove(rows, sourceIndex, targetIndex));
     }
   };
 
   return (
     <TableContainer onDragEnd={handleDragEnd}>
       <TableHeader>
-        {columns.map((col) => (
-          <ColumnCell key={col} width={150}>{col}</ColumnCell>
+        {cols.map((col, i) => (
+          <ColumnCell key={col.id} id={col.id} index={i} width={col.width}>
+            {col.label}
+          </ColumnCell>
         ))}
       </TableHeader>
       <TableBody>
         {rows.map((row, ri) => (
-          <BodyRow key={ri}>
-            {row.map((cell, ci) => (
-              <RowCell key={ci} index={ci} width={150}>{cell}</RowCell>
+          <BodyRow key={row.id} id={row.id} index={ri}>
+            {cols.map((col, ci) => (
+              <RowCell key={col.id} index={ci} width={col.width}>
+                {row[col.id]}
+              </RowCell>
             ))}
           </BodyRow>
         ))}
@@ -209,6 +228,60 @@ function CodeBlock({ code, lang = "tsx", tsxCode, jsxCode }: CodeBlockProps) {
 }
 
 // ── App ────────────────────────────────────────────────
+// ── Basic demo (matches the "Basic Usage" code block) ──
+function BasicDemo() {
+  const [cols, setCols] = useState([
+    { id: "name", label: "Name",  width: 150 },
+    { id: "age",  label: "Age",   width: 100 },
+    { id: "email",label: "Email", width: 200 },
+  ]);
+  const [rows, setRows] = useState([
+    { id: "1", name: "Alice", age: 28, email: "alice@example.com" },
+    { id: "2", name: "Bob",   age: 34, email: "bob@example.com" },
+    { id: "3", name: "Carol", age: 22, email: "carol@example.com" },
+  ] as Record<string, string | number>[]);
+
+  const move = <T,>(arr: T[], from: number, to: number) => {
+    const next = [...arr];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    return next;
+  };
+
+  return (
+    <div className="example-container" style={{ marginTop: 16 }}>
+      <div style={{ width: "100%" }}>
+        <p style={{ margin: "0 0 12px", fontSize: 12, color: "#8b8b94" }}>Try it — drag rows and columns:</p>
+        <_TC onDragEnd={({ sourceIndex, targetIndex, dragType }: any) => {
+          if (dragType === "column") setCols(move(cols, sourceIndex, targetIndex));
+          else setRows(move(rows, sourceIndex, targetIndex));
+        }} style={{ height: 180, border: "1px solid #2e2e36", borderRadius: 8 }}>
+          <_TH>
+            {cols.map((col, i) => (
+              <_CC key={col.id} id={col.id} index={i} width={col.width}
+                style={{ display: "flex", alignItems: "center", height: 40, padding: "0 12px", fontSize: 13, fontWeight: 700, color: "#94a3b8", background: "#1e1e24", borderBottom: "2px solid #2e2e36", textTransform: "uppercase" as const }}>
+                {col.label}
+              </_CC>
+            ))}
+          </_TH>
+          <_TB>
+            {rows.map((row, ri) => (
+              <_BR key={row.id as string} id={row.id as string} index={ri}>
+                {cols.map((col, ci) => (
+                  <_RC key={col.id} index={ci}
+                    style={{ height: 36, padding: "0 12px", fontSize: 13, color: "#cbd5e1", background: "#16161c", borderBottom: "1px solid #232329", display: "flex", alignItems: "center" }}>
+                    {row[col.id]}
+                  </_RC>
+                ))}
+              </_BR>
+            ))}
+          </_TB>
+        </_TC>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [activeExample, setActiveExample] = useState("fixed");
   const [showCode, setShowCode] = useState(false);
@@ -335,7 +408,8 @@ function App() {
         <p>Requires <code className="inline-code">react</code> and <code className="inline-code">react-dom</code> ≥ 17.0.0.</p>
 
         <h3>Basic Usage</h3>
-        <CodeBlock code={BASIC_USAGE} />
+        <CodeBlock code={BASIC_USAGE} lang="jsx" />
+        <BasicDemo />
       </section>
 
       <hr className="divider" />
@@ -444,11 +518,11 @@ function App() {
 
         <h3>Constraining Drag Range</h3>
         <p>Lock the first column and first row so they can't be dragged:</p>
-        <CodeBlock code={DRAG_RANGE_CODE} />
+        <CodeBlock code={DRAG_RANGE_CODE} lang="jsx" />
 
         <h3>Custom Placeholder</h3>
         <p>Render a custom element in the spot vacated by the dragged item:</p>
-        <CodeBlock code={PLACEHOLDER_CODE} />
+        <CodeBlock code={PLACEHOLDER_CODE} lang="jsx" />
       </section>
 
       {/* Footer */}
