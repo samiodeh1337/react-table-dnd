@@ -2,12 +2,95 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>flexitablesort - Sortable Table for React</title>
+    <title>flexitablesort - Drag-and-Drop Sortable Table for React</title>
+    <meta name="description" content="React component library for drag-and-drop row and column reordering. Smooth animations, auto-scroll, virtual scrolling (100k+ rows), drag handles, and full style control." />
+    <meta name="keywords" content="react, table, sortable, draggable, drag and drop, row reordering, column reordering, react table, data grid, virtual scrolling" />
+    <meta name="author" content="Sami Odeh" />
+
+    <!-- Open Graph (Facebook, LinkedIn, Discord) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="flexitablesort - Sortable Table for React" />
+    <meta property="og:description" content="Drag-and-drop row and column reordering for React tables. Smooth animations, virtual scrolling, and zero UI dependencies." />
+    <meta property="og:url" content="https://samiodeh1337.github.io/sortable-table/" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="flexitablesort - Sortable Table for React" />
+    <meta name="twitter:description" content="Drag-and-drop row and column reordering for React tables. Smooth animations, virtual scrolling, and zero UI dependencies." />
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://samiodeh1337.github.io/sortable-table/" />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareSourceCode",
+      "name": "flexitablesort",
+      "description": "React component library for drag-and-drop row and column reordering in tables.",
+      "url": "https://samiodeh1337.github.io/sortable-table/",
+      "codeRepository": "https://github.com/samiodeh1337/sortable-table",
+      "programmingLanguage": ["TypeScript", "JavaScript", "React"],
+      "license": "https://opensource.org/licenses/MIT",
+      "author": {
+        "@type": "Person",
+        "name": "Sami Odeh",
+        "url": "https://github.com/samiodeh1337"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- SEO: Static content for crawlers that don't execute JavaScript -->
+    <noscript>
+      <div style="max-width:800px;margin:0 auto;padding:40px 20px;font-family:system-ui,sans-serif;color:#333">
+        <h1>flexitablesort</h1>
+        <p>A React component library for drag-and-drop sortable tables with row and column reordering.</p>
+
+        <h2>Features</h2>
+        <ul>
+          <li>Drag-and-drop row and column reordering</li>
+          <li>Smooth 60fps animations using direct DOM transforms</li>
+          <li>Auto-scroll when dragging near container edges</li>
+          <li>Drag range constraints for locking rows and columns</li>
+          <li>DragHandle component for grip-based dragging</li>
+          <li>Virtual scrolling support for 100,000+ rows</li>
+          <li>Full className and style prop support on every component</li>
+          <li>Event delegation - single listener regardless of row count</li>
+          <li>TypeScript support with full type definitions</li>
+        </ul>
+
+        <h2>Install</h2>
+        <code>npm install flexitablesort</code>
+
+        <h2>Components</h2>
+        <ul>
+          <li><strong>TableContainer</strong> - Root wrapper providing drag-and-drop context</li>
+          <li><strong>TableHeader</strong> - Header row container</li>
+          <li><strong>ColumnCell</strong> - Draggable column header cell</li>
+          <li><strong>TableBody</strong> - Body container with ref support for virtual scrolling</li>
+          <li><strong>BodyRow</strong> - Draggable table row</li>
+          <li><strong>RowCell</strong> - Cell within a body row</li>
+          <li><strong>DragHandle</strong> - Restricts drag to a specific grip element</li>
+        </ul>
+
+        <p>
+          <a href="https://github.com/samiodeh1337/sortable-table">View on GitHub</a> |
+          <a href="https://www.npmjs.com/package/flexitablesort">View on npm</a>
+        </p>
+      </div>
+    </noscript>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
