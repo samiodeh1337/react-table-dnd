@@ -97,7 +97,7 @@ const DragHandleExample = () => {
                   {ci === 0 && (
                     <DragHandle style={handleStyle}><GripIcon /></DragHandle>
                   )}
-                  {(row as any)[col.id]}
+                  {row[col.id]}
                 </RowCell>
               ))}
             </BodyRow>

@@ -202,7 +202,7 @@ const VirtualExample = () => {
                 >
                   {cols.map((col, ci) => (
                     <RowCell key={col.id} index={ci} style={tdStyle}>
-                      {(row as any)[col.key]}
+                      {row[col.key]}
                     </RowCell>
                   ))}
                 </BodyRow>

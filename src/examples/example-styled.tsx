@@ -81,7 +81,7 @@ const CustomStyledExample = () => {
   const renderCell = (row: Row, colId: string) => {
     if (colId === "status") return <StatusBadge status={row.status} />;
     if (colId === "score") return <ScoreBar score={row.score} />;
-    return (row as any)[colId];
+    return row[colId];
   };
 
   return (

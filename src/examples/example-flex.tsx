@@ -120,11 +120,11 @@ const CustomRowHeightsExample = () => {
                   <RowCell key={col.id} index={ci} style={makeTd(h, isEven, ci === cols.length - 1)}>
                     {ci === 0 ? (
                       <span>
-                        {(row as any)[col.id]}
+                        {row[col.id]}
                         <span style={heightLabel}>{h}px</span>
                       </span>
                     ) : (
-                      (row as any)[col.id]
+                      row[col.id]
                     )}
                   </RowCell>
                 ))}

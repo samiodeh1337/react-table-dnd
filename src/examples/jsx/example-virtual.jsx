@@ -4,7 +4,41 @@ import {
   TableContainer, TableHeader, ColumnCell,
   TableBody, BodyRow, RowCell,
 } from "flexitablesort";
-import { generateData, arrayMove } from "./helpers";
+
+function generateData(count) {
+  const STATUSES = ["Active","Inactive","Pending","On Leave","Terminated"];
+  const DEPTS = ["Engineering","Sales","Marketing","HR","Finance","Legal","Support","Product"];
+  return Array.from({ length: count }, (_, i) => ({
+    id: `row-${i}`,
+    firstName: `First${i}`,
+    lastName: `Last${i}`,
+    email: `user${i}@company.com`,
+    phone: `+1-${String(i).padStart(10, "0")}`,
+    company: `Company ${i % 500}`,
+    jobTitle: `Title ${i % 200}`,
+    department: DEPTS[i % DEPTS.length],
+    city: `City ${i % 80}`,
+    state: `State ${i % 50}`,
+    country: `Country ${i % 30}`,
+    zipCode: String(10000 + (i % 90000)),
+    address: `${i} Main St`,
+    age: 18 + (i % 62),
+    salary: `$${(30 + (i % 170)) * 1000}`,
+    startDate: `2020-${String((i % 12) + 1).padStart(2, "0")}-${String((i % 28) + 1).padStart(2, "0")}`,
+    status: STATUSES[i % STATUSES.length],
+    score: i % 101,
+    rating: ((i % 50) / 10 + 0.5).toFixed(1),
+    category: DEPTS[i % DEPTS.length],
+    notes: `Note for row ${i}`,
+  }));
+}
+
+function arrayMove(arr, from, to) {
+  const next = arr.slice();
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
 
 const COL_DEFS = [
   { key: "firstName",  title: "First Name" },

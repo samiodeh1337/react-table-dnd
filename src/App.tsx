@@ -12,16 +12,17 @@ import StylingExample from "./examples/example-styling";
 import DragHandleExample from "./examples/example-handle";
 import "./docs.css";
 
-// Raw source imports for code preview (TSX)
-import srcFixedTsx from "./examples/tsx/example-fixed.tsx?raw";
-import srcFlexTsx from "./examples/tsx/example-flex.tsx?raw";
-import srcOptionsTsx from "./examples/tsx/example-options.tsx?raw";
-import srcStyledTsx from "./examples/tsx/example-styled.tsx?raw";
-import srcVirtualTsx from "./examples/tsx/example-virtual.tsx?raw";
-import srcStylingTsx from "./examples/tsx/example-styling.tsx?raw";
-import srcHandleTsx from "./examples/tsx/example-handle.tsx?raw";
+// Raw source imports for code preview (TSX — from real example files)
+import srcFixedTsx from "./examples/example-fixed.tsx?raw";
+import srcFlexTsx from "./examples/example-flex.tsx?raw";
+import srcOptionsTsx from "./examples/example-options.tsx?raw";
+import srcStyledTsx from "./examples/example-styled.tsx?raw";
+import srcVirtualTsx from "./examples/example-virtual.tsx?raw";
+import srcStylingTsx from "./examples/example-styling.tsx?raw";
+import srcHandleTsx from "./examples/example-handle.tsx?raw";
+import srcDataTsx from "./examples/example-data.ts?raw";
 
-// Raw source imports for code preview (JSX)
+// Raw source imports for code preview (JSX — standalone copies)
 import srcFixedJsx from "./examples/jsx/example-fixed.jsx?raw";
 import srcFlexJsx from "./examples/jsx/example-flex.jsx?raw";
 import srcOptionsJsx from "./examples/jsx/example-options.jsx?raw";
@@ -35,14 +36,24 @@ hljs.registerLanguage("tsx", typescript);
 hljs.registerLanguage("xml", xml);
 hljs.registerLanguage("bash", bash);
 
+// Transform real example TSX source → user-ready code preview
+function prepareTsx(raw: string): string {
+  const cleanData = srcDataTsx
+    .replace(/\/\/.*\n/, "")           // remove "Shared data generation" comment
+    .replace(/^export /gm, "");        // remove export keywords
+  return raw
+    .replace(/from ["']\.\.\/Components["']/g, 'from "flexitablesort"')
+    .replace(/import\s*\{[^}]*\}\s*from\s*["']\.\/example-data["'];?\n?/g, cleanData + "\n");
+}
+
 const EXAMPLES = [
-  { id: "fixed",   label: "Fixed Sizes",        component: FixedExample,           tsx: srcFixedTsx,   jsx: srcFixedJsx   },
-  { id: "flex",    label: "Custom Heights",      component: CustomRowHeightsExample, tsx: srcFlexTsx,    jsx: srcFlexJsx    },
-  { id: "options", label: "Drag Ranges",         component: OptionsExample,          tsx: srcOptionsTsx, jsx: srcOptionsJsx },
-  { id: "styled",  label: "Custom Styled",       component: CustomStyledExample,     tsx: srcStyledTsx,  jsx: srcStyledJsx  },
-  { id: "virtual", label: "Virtual (100k rows)", component: VirtualExample,          tsx: srcVirtualTsx, jsx: srcVirtualJsx },
-  { id: "styling", label: "className & style",   component: StylingExample,          tsx: srcStylingTsx, jsx: srcStylingJsx },
-  { id: "handle",  label: "Drag Handle",         component: DragHandleExample,       tsx: srcHandleTsx,  jsx: srcHandleJsx  },
+  { id: "fixed",   label: "Fixed Sizes",        component: FixedExample,           tsx: prepareTsx(srcFixedTsx),   jsx: srcFixedJsx   },
+  { id: "flex",    label: "Custom Heights",      component: CustomRowHeightsExample, tsx: prepareTsx(srcFlexTsx),    jsx: srcFlexJsx    },
+  { id: "options", label: "Drag Ranges",         component: OptionsExample,          tsx: prepareTsx(srcOptionsTsx), jsx: srcOptionsJsx },
+  { id: "styled",  label: "Custom Styled",       component: CustomStyledExample,     tsx: prepareTsx(srcStyledTsx),  jsx: srcStyledJsx  },
+  { id: "virtual", label: "Virtual (100k rows)", component: VirtualExample,          tsx: prepareTsx(srcVirtualTsx), jsx: srcVirtualJsx },
+  { id: "styling", label: "className & style",   component: StylingExample,          tsx: prepareTsx(srcStylingTsx), jsx: srcStylingJsx },
+  { id: "handle",  label: "Drag Handle",         component: DragHandleExample,       tsx: prepareTsx(srcHandleTsx),  jsx: srcHandleJsx  },
 ] as const;
 
 const INSTALL_CMD = "npm install flexitablesort";
@@ -145,7 +156,7 @@ interface CodeBlockProps {
 function CodeBlock({ code, lang = "tsx", tsxCode, jsxCode }: CodeBlockProps) {
   const hasTabs = !!(tsxCode && jsxCode);
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<"tsx" | "jsx">("tsx");
+  const [activeTab, setActiveTab] = useState<"tsx" | "jsx">("jsx");
   const ref = useRef<HTMLElement>(null);
 
   const displayCode = hasTabs ? (activeTab === "jsx" ? jsxCode! : tsxCode!) : (code ?? "");

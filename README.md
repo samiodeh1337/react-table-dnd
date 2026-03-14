@@ -1,13 +1,10 @@
-# FlexiTableSort
+# flexitablesort
 
-![npm](https://img.shields.io/npm/v/flexitablesort?color=blue&label=npm%20version&style=flat-square)
-![downloads](https://img.shields.io/npm/dw/flexitablesort?color=brightgreen&style=flat-square)
-![license](https://img.shields.io/npm/l/flexitablesort?style=flat-square)
-![typescript](https://img.shields.io/badge/types-yes-brightgreen?style=flat-square)
-![stars](https://img.shields.io/github/stars/samiodeh1337/sortable-table?style=social)
-![build](https://github.com/samiodeh1337/sortable-table/actions/workflows/deploy-docs.yml/badge.svg)
+[![npm version](https://img.shields.io/npm/v/flexitablesort)](https://www.npmjs.com/package/flexitablesort)
+[![npm bundle size](https://img.shields.io/bundlephobia/minzip/flexitablesort)](https://bundlephobia.com/package/flexitablesort)
+[![license](https://img.shields.io/npm/l/flexitablesort)](https://github.com/samiodeh1337/sortable-table/blob/main/LICENSE)
+[![npm downloads](https://img.shields.io/npm/dm/flexitablesort)](https://www.npmjs.com/package/flexitablesort)
 
----
 Drag-and-drop row and column reordering for React tables. Smooth animations, auto-scroll, virtual scrolling support, and zero external UI dependencies.
 
 ## Install

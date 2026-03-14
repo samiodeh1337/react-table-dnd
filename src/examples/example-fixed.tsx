@@ -62,7 +62,7 @@ const FixedExample = () => {
           {data.map((row, ri) => (
             <BodyRow key={row.id} id={row.id} index={ri}>
               {cols.map((col, ci) => (
-                <RowCell key={col.id} index={ci} style={td}>{(row as any)[col.id]}</RowCell>
+                <RowCell key={col.id} index={ci} style={td}>{row[col.id]}</RowCell>
               ))}
             </BodyRow>
           ))}

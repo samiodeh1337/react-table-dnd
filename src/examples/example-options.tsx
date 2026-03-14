@@ -91,7 +91,7 @@ const OptionsExample = () => {
               <BodyRow key={row.id} id={row.id} index={ri}>
                 {cols.map((col, ci) => (
                   <RowCell key={col.id} index={ci} style={locked || isColLocked(ci) ? tdLocked : tdNormal}>
-                    {(row as any)[col.id]}
+                    {row[col.id]}
                   </RowCell>
                 ))}
               </BodyRow>

@@ -3,7 +3,34 @@ import {
   TableContainer, TableHeader, ColumnCell,
   TableBody, BodyRow, RowCell,
 } from "flexitablesort";
-import { generateRows, arrayMove } from "./helpers";
+
+function generateRows(count) {
+  const ROLES = ["Engineer","Designer","PM","QA","DevOps","Analyst","Lead","Manager"];
+  const STATUSES = ["Active","Inactive","On Leave","Pending","Terminated"];
+  const DEPTS = ["Engineering","Design","Product","Marketing","Sales","HR","Finance","Support"];
+  const CITIES = ["New York","London","Berlin","Tokyo","Sydney","Toronto","Mumbai","Paris"];
+  const FIRST = ["Alice","Bob","Carol","Dan","Eve","Frank","Grace","Hank","Ivy","Jack"];
+  const LAST = ["Johnson","Smith","White","Brown","Davis","Lee","Kim","Miller","Chen","Park"];
+  return Array.from({ length: count }, (_, i) => ({
+    id: `row-${i}`,
+    name: `${FIRST[i % FIRST.length]} ${LAST[Math.floor(i / FIRST.length) % LAST.length]}`,
+    role: ROLES[i % ROLES.length],
+    status: STATUSES[i % STATUSES.length],
+    email: `${FIRST[i % FIRST.length].toLowerCase()}${i}@company.com`,
+    department: DEPTS[i % DEPTS.length],
+    location: CITIES[i % CITIES.length],
+    salary: `$${40 + (i % 160)}k`,
+    joined: `${2019 + (i % 6)}-${String((i % 12) + 1).padStart(2, "0")}`,
+    score: i % 101,
+  }));
+}
+
+function arrayMove(arr, from, to) {
+  const next = arr.slice();
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
 
 const INIT_COLS = [
   { id: "name",       title: "Name",       width: 170 },

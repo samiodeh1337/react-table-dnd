@@ -94,7 +94,7 @@ const StylingExample = () => {
                   className={`my-cell${ri % 2 !== 0 ? " my-cell-alt" : ""}`}
                   style={{ width: col.width }}
                 >
-                  {(row as any)[col.id]}
+                  {row[col.id]}
                 </RowCell>
               ))}
             </BodyRow>
