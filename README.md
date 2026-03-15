@@ -58,3 +58,16 @@ Tested on Chrome, Firefox, and Safari (desktop). Mobile touch events are support
 ## License
 
 MIT
+
+## Examples
+<!-- Desktop demo -->
+<p>
+  <img src="./docs/desktop.gif" alt="Desktop demo" width="800" />
+</p>
+
+<!-- Mobile demo -->
+<p>
+  <img src="./docs/mobile.gif" alt="Mobile demo" width="360" />
+</p>
+
+See the examples page for more details: `docs/examples.md`.
