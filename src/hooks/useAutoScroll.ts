@@ -17,6 +17,13 @@ const useAutoScroll = (refs: Refs) => {
   // Pointer position ref — updated externally by drag handler
   const pointerRef = useRef({ x: 0, y: 0 });
 
+  // Container rect — set once at drag start via setContainerRect, reused by the loop
+  const containerRectRef = useRef<DOMRect | null>(null);
+
+  const setContainerRect = useCallback((rect: DOMRect) => {
+    containerRectRef.current = rect;
+  }, []);
+
   const stopAutoScroll = useCallback(() => {
     isAutoScrollingVertical.current = false;
     isAutoScrollingHorizontal.current = false;
@@ -32,22 +39,25 @@ const useAutoScroll = (refs: Refs) => {
 
     if (!flag.current) return;
 
-    // Check if pointer is still in edge zone — stop if not
-    const rect = ref.getBoundingClientRect();
-    const ptr = pointerRef.current;
-    if (isVertical) {
-      const inTopEdge = ptr.y < rect.top + EDGE_ZONE;
-      const inBottomEdge = ptr.y > rect.bottom - EDGE_ZONE;
-      if (!inTopEdge && !inBottomEdge) {
-        flag.current = false;
-        return;
-      }
-    } else {
-      const inLeftEdge = ptr.x < rect.left + EDGE_ZONE;
-      const inRightEdge = ptr.x > rect.right - EDGE_ZONE;
-      if (!inLeftEdge && !inRightEdge) {
-        flag.current = false;
-        return;
+    // Check if pointer is still in edge zone — stop if not.
+    // Uses cached rect (set once at drag start) to avoid getBoundingClientRect per frame.
+    const rect = containerRectRef.current;
+    if (rect) {
+      const ptr = pointerRef.current;
+      if (isVertical) {
+        const inTopEdge = ptr.y < rect.top + EDGE_ZONE;
+        const inBottomEdge = ptr.y > rect.bottom - EDGE_ZONE;
+        if (!inTopEdge && !inBottomEdge) {
+          flag.current = false;
+          return;
+        }
+      } else {
+        const inLeftEdge = ptr.x < rect.left + EDGE_ZONE;
+        const inRightEdge = ptr.x > rect.right - EDGE_ZONE;
+        if (!inLeftEdge && !inRightEdge) {
+          flag.current = false;
+          return;
+        }
       }
     }
 
@@ -80,7 +90,9 @@ const useAutoScroll = (refs: Refs) => {
     if (!flag.current) {
       flag.current = true;
       decaySpeed.current = 0;
-      autoScroll(speed, ref, dir);
+      // Defer first tick — writing scrollTop inside a touch handler causes
+      // Chrome Android to reclaim the touch and kill future event delivery.
+      animationFrameRef.current = requestAnimationFrame(() => autoScroll(speed, ref, dir));
     }
   }, [autoScroll]);
 
@@ -99,8 +111,9 @@ const useAutoScroll = (refs: Refs) => {
   return {
     startAutoScroll,
     stopAutoScroll,
-    isAutoScrollingHorizontal,
+    setContainerRect,
     isAutoScrollingVertical,
+    isAutoScrollingHorizontal,
     pointerRef,
     BodyScrollHandle,
     HeaderScrollHandle,

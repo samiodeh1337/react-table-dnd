@@ -1,468 +1,273 @@
-/* eslint-disable no-unused-vars */
-// @ts-nocheck
 import { useCallback, useEffect, useRef } from "react";
 import useAutoScroll from "./useAutoScroll";
-import {
-  binarySearchDropIndex,
-  binarySearchDropIndexHeader,
-} from "../Components/utils";
+import useLongPress from "./useLongPress";
+import { binarySearchDropIndex, binarySearchDropIndexHeader } from "../Components/utils";
+import type { HookRefs, DraggedState, DragAction, Options, DragEndResult, RowItem, ColumnItem, Point } from "./types";
 
 const TRANSITION_STYLE = "all 450ms cubic-bezier(0.2, 0, 0, 1)";
-const LONG_PRESS_DELAY = 300;
-const LONG_PRESS_MOVE_THRESHOLD = 8;
 
-const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDragEnd) => {
-  const {
-    startAutoScroll,
-    stopAutoScroll,
-    pointerRef,
-  } = useAutoScroll(refs);
+// ── Hook ────────────────────────────────────────────────
 
-  const cachedItemsRef = useRef(null);
-  const cachedContainerRef = useRef(null);
-  const dragTypeRef = useRef(null);
-  const initialRef = useRef({ x: 0, y: 0 });
-  const sourceIndexRef = useRef(null);
-  const targetIndexRef = useRef(null);
+const useDragContextEvents = (
+  refs: HookRefs,
+  dragged: DraggedState,
+  dispatch: (action: DragAction) => void,
+  dragType: string | null,
+  options: Options,
+  onDragEnd: ((result: DragEndResult) => void) | undefined
+) => {
+  const { startAutoScroll, stopAutoScroll, setContainerRect, pointerRef } = useAutoScroll(
+    refs as Parameters<typeof useAutoScroll>[0]
+  );
+
+  // ── Refs ────────────────────────────────────────────────
+
+  const cachedItemsRef = useRef<RowItem[] | ColumnItem[] | null>(null);
+  const cachedContainerRef = useRef<DOMRect | null>(null);
+  const dragTypeRef = useRef<string | null | undefined>(null);
+  const initialRef = useRef<Point>({ x: 0, y: 0 });
+  const sourceIndexRef = useRef<number | null>(null);
+  const targetIndexRef = useRef<number | null>(null);
   const draggedSizeRef = useRef({ width: 0, height: 0 });
-  const lastClientRef = useRef({ x: 0, y: 0 });
+  const lastClientRef = useRef<Point>({ x: 0, y: 0 });
 
-  // Long-press state for touch
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const touchStartPosRef = useRef({ x: 0, y: 0 });
-  const pendingTouchEventRef = useRef(null);
-  const isTouchActiveRef = useRef(false);
-  const touchMoveBeforeDragRef = useRef<any>(null);
-  const touchEndBeforeDragRef = useRef<any>(null);
+  // ── Compute items ───────────────────────────────────────
 
-
-  const computeRowItems = useCallback(() => {
-    const body = refs.bodyRef.current;
+  const computeRowItems = useCallback((): RowItem[] | null => {
+    const body = refs.bodyRef?.current;
     if (!body) return null;
-    const containerScrollTop = body.scrollTop;
-    const containerTopOffset = body.getBoundingClientRect().top;
+    const scrollTop = body.scrollTop;
+    const topOffset = body.getBoundingClientRect().top;
 
     const elements = body.querySelectorAll('.draggable[data-type="row"]');
-    let items = [];
+    let items: RowItem[] = [];
     for (let i = 0; i < elements.length; i++) {
-      const el = elements[i];
+      const el = elements[i] as HTMLElement;
       if (el.dataset.index === undefined) continue;
       const rect = el.getBoundingClientRect();
-      const itemTop = rect.top - containerTopOffset + containerScrollTop;
-      items.push({
-        height: rect.height,
-        itemTop,
-        itemBottom: itemTop + rect.height,
-        index: el.dataset.index,
-      });
+      const itemTop = rect.top - topOffset + scrollTop;
+      items.push({ height: rect.height, itemTop, itemBottom: itemTop + rect.height, index: el.dataset.index });
     }
 
-    const start = options.rowDragRange.start;
-    const end = options.rowDragRange.end;
+    const { start, end } = options.rowDragRange;
     if (start || end) {
-      items = items.filter((item) => {
-        return (!start || item.index >= start) && (!end || item.index < end);
-      });
+      items = items.filter((item) => (!start || +item.index >= start) && (!end || +item.index < end));
     }
-
     return items;
   }, [refs.bodyRef, options.rowDragRange]);
 
-  const computeColumnItems = useCallback(() => {
-    const header = refs.headerRef.current;
+  const computeColumnItems = useCallback((): ColumnItem[] | null => {
+    const header = refs.headerRef?.current;
     if (!header || !header.children[0]) return null;
 
-    let items = Array.from(header.children[0].children)
-      .map((el) => {
-        const rect = el.getBoundingClientRect();
-        return {
-          left: rect.left,
-          width: rect.width,
-          itemLeft: rect.left,
-          itemRight: rect.left + rect.width,
-          index: el.dataset.index,
-        };
-      })
-      .filter((item) => item.index !== undefined);
+    let items = Array.from(header.children[0].children).map((el) => {
+      const rect = el.getBoundingClientRect();
+      return { left: rect.left, width: rect.width, itemLeft: rect.left, itemRight: rect.left + rect.width, index: (el as HTMLElement).dataset.index };
+    }).filter((item) => item.index !== undefined);
 
-    const start = options.columnDragRange?.start;
-    const end = options.columnDragRange?.end;
+    const { start, end } = options.columnDragRange ?? {};
     if (start !== undefined || end !== undefined) {
       items = items.filter((item) => {
-        const idx = +item.index;
+        const idx = +item.index!;
         return (start === undefined || idx >= start) && (end === undefined || idx < end);
       });
     }
-
     return items;
   }, [refs.headerRef, options.columnDragRange]);
 
-  const positionPlaceholder = useCallback((targetEl, sourceIndex, targetIndex, currentDragType) => {
-    const ph = refs.placeholderRef?.current;
-    if (!ph || !targetEl) {
-      if (ph) ph.style.display = "none";
-      return;
-    }
+  // ── Placeholder ─────────────────────────────────────────
 
-    const size = draggedSizeRef.current;
-    const rect = targetEl.getBoundingClientRect();
+  const positionPlaceholder = useCallback(
+    (targetEl: HTMLElement | null, sourceIdx: number | null, targetIdx: number | null, dtype: string | null | undefined) => {
+      const ph = refs.placeholderRef?.current;
+      if (!ph || !targetEl) { if (ph) ph.style.display = "none"; return; }
 
-    ph.style.display = "block";
+      const size = draggedSizeRef.current;
+      const rect = targetEl.getBoundingClientRect();
+      const tableRect = refs.tableRef?.current?.getBoundingClientRect();
+      const forward = (sourceIdx ?? 0) < (targetIdx ?? 0);
 
-    const movingForward = sourceIndex < targetIndex;
-
-    if (currentDragType === "row") {
-      const tableEl = refs.tableRef?.current;
-      const tableRect = tableEl?.getBoundingClientRect();
-      const gapTop = movingForward
-        ? rect.top + rect.height - size.height
-        : rect.top;
-      ph.style.top = `${gapTop}px`;
-      ph.style.left = `${tableRect?.left ?? rect.left}px`;
-      ph.style.width = `${tableRect?.width ?? rect.width}px`;
-      ph.style.height = `${size.height}px`;
-    } else {
-      const tableEl = refs.tableRef?.current;
-      const tableRect = tableEl?.getBoundingClientRect();
-      const gapLeft = movingForward
-        ? rect.left + rect.width - size.width
-        : rect.left;
-      ph.style.top = `${tableRect?.top ?? rect.top}px`;
-      ph.style.left = `${gapLeft}px`;
-      ph.style.width = `${size.width}px`;
-      ph.style.height = `${tableRect?.height ?? rect.height}px`;
-    }
-  }, [refs.placeholderRef, refs.tableRef]);
-
-  const applyShiftTransforms = useCallback((sourceIndex, targetIndex, currentDragType) => {
-    if (sourceIndex === null || targetIndex === null) return;
-
-    const size = draggedSizeRef.current;
-    let targetEl = null;
-
-    if (currentDragType === "row") {
-      const body = refs.bodyRef.current;
-      if (!body) return;
-      const draggables = body.querySelectorAll('.draggable[data-type="row"]');
-      for (let i = 0; i < draggables.length; i++) {
-        const el = draggables[i];
-        const idx = +el.dataset.index;
-        const inner = el.firstElementChild;
-        if (!inner) continue;
-
-        let shift = "";
-        if (idx > sourceIndex && idx <= targetIndex) {
-          shift = `translateY(-${size.height}px)`;
-        } else if (idx < sourceIndex && idx >= targetIndex) {
-          shift = `translateY(${size.height}px)`;
-        }
-        inner.style.transform = shift;
-        inner.style.transition = idx === sourceIndex ? "none" : TRANSITION_STYLE;
-
-        if (idx === targetIndex) {
-          el.setAttribute("data-drop-target", "true");
-          targetEl = el;
-        } else {
-          el.removeAttribute("data-drop-target");
-        }
+      ph.style.display = "block";
+      if (dtype === "row") {
+        ph.style.top = `${forward ? rect.top + rect.height - size.height : rect.top}px`;
+        ph.style.left = `${tableRect?.left ?? rect.left}px`;
+        ph.style.width = `${tableRect?.width ?? rect.width}px`;
+        ph.style.height = `${size.height}px`;
+      } else {
+        ph.style.top = `${tableRect?.top ?? rect.top}px`;
+        ph.style.left = `${forward ? rect.left + rect.width - size.width : rect.left}px`;
+        ph.style.width = `${size.width}px`;
+        ph.style.height = `${tableRect?.height ?? rect.height}px`;
       }
-    } else if (currentDragType === "column") {
-      const header = refs.headerRef.current;
-      if (header) {
-        const draggables = header.querySelectorAll('.draggable[data-type="column"]');
-        for (let i = 0; i < draggables.length; i++) {
-          const el = draggables[i];
-          const idx = +el.dataset.index;
-          const inner = el.firstElementChild;
+    },
+    [refs.placeholderRef, refs.tableRef]
+  );
+
+  // ── Shift transforms ───────────────────────────────────
+
+  const applyShiftTransforms = useCallback(
+    (sourceIndex: number | null, targetIndex: number | null, dtype: string | null | undefined) => {
+      if (sourceIndex === null || targetIndex === null) return;
+      const size = draggedSizeRef.current;
+      let targetEl: HTMLElement | null = null;
+
+      const shiftElements = (
+        container: HTMLElement | null, selector: string, axis: "X" | "Y", amount: number
+      ) => {
+        if (!container) return;
+        const els = container.querySelectorAll(selector);
+        for (let i = 0; i < els.length; i++) {
+          const el = els[i] as HTMLElement;
+          const idx = +el.dataset.index!;
+          const inner = el.firstElementChild as HTMLElement | null;
           if (!inner) continue;
 
           let shift = "";
-          if (idx > sourceIndex && idx <= targetIndex) {
-            shift = `translateX(-${size.width}px)`;
-          } else if (idx < sourceIndex && idx >= targetIndex) {
-            shift = `translateX(${size.width}px)`;
-          }
+          if (idx > sourceIndex && idx <= targetIndex) shift = `translate${axis}(-${amount}px)`;
+          else if (idx < sourceIndex && idx >= targetIndex) shift = `translate${axis}(${amount}px)`;
+
           inner.style.transform = shift;
           inner.style.transition = idx === sourceIndex ? "none" : TRANSITION_STYLE;
 
-          if (idx === targetIndex) {
-            el.setAttribute("data-drop-target", "true");
-            targetEl = el;
-          } else {
-            el.removeAttribute("data-drop-target");
+          if (idx === targetIndex) { el.setAttribute("data-drop-target", "true"); targetEl = el; }
+          else el.removeAttribute("data-drop-target");
+        }
+      };
+
+      if (dtype === "row") {
+        shiftElements(refs.bodyRef?.current ?? null, '.draggable[data-type="row"]', "Y", size.height);
+      } else if (dtype === "column") {
+        shiftElements(refs.headerRef?.current ?? null, '.draggable[data-type="column"]', "X", size.width);
+
+        // Also shift body cells for column drag
+        const body = refs.bodyRef?.current;
+        if (body) {
+          const cells = body.querySelectorAll('.td[data-col-index]');
+          for (let i = 0; i < cells.length; i++) {
+            const cell = cells[i] as HTMLElement;
+            const idx = +cell.dataset.colIndex!;
+            let shift = "";
+            if (idx > sourceIndex && idx <= targetIndex) shift = `translateX(-${size.width}px)`;
+            else if (idx < sourceIndex && idx >= targetIndex) shift = `translateX(${size.width}px)`;
+            cell.style.transform = shift;
+            cell.style.transition = TRANSITION_STYLE;
           }
         }
       }
 
-      const body = refs.bodyRef.current;
-      if (body) {
-        const cells = body.querySelectorAll('.td[data-col-index]');
-        for (let i = 0; i < cells.length; i++) {
-          const cell = cells[i];
-          const idx = +cell.dataset.colIndex;
-
-          let shift = "";
-          if (idx > sourceIndex && idx <= targetIndex) {
-            shift = `translateX(-${size.width}px)`;
-          } else if (idx < sourceIndex && idx >= targetIndex) {
-            shift = `translateX(${size.width}px)`;
-          }
-          cell.style.transform = shift;
-          cell.style.transition = TRANSITION_STYLE;
-        }
-      }
-    }
-
-    positionPlaceholder(targetEl, sourceIndex, targetIndex, currentDragType);
-  }, [refs.bodyRef, refs.headerRef, refs.placeholderRef, positionPlaceholder]);
+      positionPlaceholder(targetEl, sourceIndex, targetIndex, dtype);
+    },
+    [refs.bodyRef, refs.headerRef, positionPlaceholder]
+  );
 
   const clearShiftTransforms = useCallback(() => {
     const ph = refs.placeholderRef?.current;
     if (ph) ph.style.display = "none";
 
-    const body = refs.bodyRef.current;
-    if (body) {
-      const draggables = body.querySelectorAll('.draggable');
+    for (const container of [refs.bodyRef?.current, refs.headerRef?.current]) {
+      if (!container) continue;
+      const draggables = container.querySelectorAll('.draggable');
       for (let i = 0; i < draggables.length; i++) {
         draggables[i].removeAttribute("data-drop-target");
-        const inner = draggables[i].firstElementChild;
-        if (inner) {
-          inner.style.transform = "";
-          inner.style.transition = "";
-        }
+        const inner = draggables[i].firstElementChild as HTMLElement | null;
+        if (inner) { inner.style.transform = ""; inner.style.transition = ""; }
       }
+    }
+    const body = refs.bodyRef?.current;
+    if (body) {
       const cells = body.querySelectorAll('.td[data-col-index]');
       for (let i = 0; i < cells.length; i++) {
-        cells[i].style.transform = "";
-        cells[i].style.transition = "";
+        (cells[i] as HTMLElement).style.transform = "";
+        (cells[i] as HTMLElement).style.transition = "";
       }
     }
-    const header = refs.headerRef.current;
-    if (header) {
-      const draggables = header.querySelectorAll('.draggable');
-      for (let i = 0; i < draggables.length; i++) {
-        draggables[i].removeAttribute("data-drop-target");
-        const inner = draggables[i].firstElementChild;
-        if (inner) {
-          inner.style.transform = "";
-          inner.style.transition = "";
-        }
-      }
-    }
-  }, [refs.bodyRef, refs.headerRef]);
+  }, [refs.bodyRef, refs.headerRef, refs.placeholderRef]);
 
-  // ── Core drag initiation ──────────────────────────────
+  // ── Find draggable from event target ───────────────────
+
+  const findDraggable = (target: EventTarget): { element: HTMLElement; foundHandle: boolean } | null => {
+    let el = target as HTMLElement | null;
+    let foundHandle = false;
+    while (el) {
+      if (el.dataset?.dragHandle === "true") foundHandle = true;
+      if (el.dataset?.contextid) return null;
+      if (el.dataset?.disabled === "true") return null;
+      if (el.dataset?.id) return { element: el, foundHandle };
+      el = el.parentNode as HTMLElement | null;
+    }
+    return null;
+  };
+
+  // ── Begin drag (shared by mouse + touch) ──────────────
+
   const beginDrag = useCallback(
-    (e, clientX, clientY) => {
-      let foundHandle = false;
-      const getDraggableElement = (element) => {
-        while (element) {
-          if (element.dataset?.dragHandle === "true") foundHandle = true;
-          if (element.dataset?.contextid) return null;
-          if (element.dataset?.disabled === "true") return null;
-          if (element.dataset?.id) return element;
-          element = element.parentNode;
-        }
-        return null;
-      };
+    (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>, clientX: number, clientY: number) => {
+      const result = findDraggable(e.target);
+      if (!result) return;
+      const { element: draggableEl, foundHandle } = result;
+      if (!foundHandle && draggableEl.querySelector("[data-drag-handle]")) return;
 
-      const draggableElement = getDraggableElement(e.target);
-      if (!draggableElement) return;
-      if (!foundHandle && draggableElement.querySelector("[data-drag-handle]")) return;
-
-      const id = draggableElement.dataset.id;
-      const sourceIndex = +draggableElement.dataset.index;
-      const dragtype = draggableElement.dataset.type;
+      const id = draggableEl.dataset.id;
+      const sourceIndex = +draggableEl.dataset.index!;
+      const dtype = draggableEl.dataset.type;
       const isTouch = e.type === "touchstart";
-      dragTypeRef.current = dragtype;
+
+      dragTypeRef.current = dtype;
       sourceIndexRef.current = sourceIndex;
       targetIndexRef.current = null;
 
       // For touch, Draggable's onPointerDown skips touch — dispatch synthetic event
       if (isTouch) {
-        draggableElement.dispatchEvent(
-          new PointerEvent("pointerdown", { bubbles: true, pointerType: "mouse" })
-        );
+        draggableEl.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "mouse" }));
       }
 
-      const scrollOffset =
-        dragtype === "row" ? refs.bodyRef.current.scrollLeft : 0;
-
-      const itemRect = draggableElement.getBoundingClientRect();
+      const scrollOffset = dtype === "row" ? (refs.bodyRef?.current?.scrollLeft ?? 0) : 0;
+      const itemRect = draggableEl.getBoundingClientRect();
       draggedSizeRef.current = { width: itemRect.width, height: itemRect.height };
 
-      const initial = {
-        x: clientX - itemRect.left - scrollOffset,
-        y: clientY - itemRect.top,
-      };
+      const initial = { x: clientX - itemRect.left - scrollOffset, y: clientY - itemRect.top };
       initialRef.current = initial;
       lastClientRef.current = { x: clientX, y: clientY };
       pointerRef.current = { x: clientX, y: clientY };
 
-      const translate = {
-        x: itemRect.left + scrollOffset,
-        y: itemRect.top,
-      };
+      const translate = { x: itemRect.left + scrollOffset, y: itemRect.top };
 
-      if (dragtype === "row") {
-        cachedItemsRef.current = computeRowItems();
-      } else {
-        cachedItemsRef.current = computeColumnItems();
-      }
-
-      const refContainer = refs.bodyRef.current;
-      if (refContainer) {
-        cachedContainerRef.current = refContainer.getBoundingClientRect();
+      cachedItemsRef.current = dtype === "row" ? computeRowItems() : computeColumnItems();
+      const body = refs.bodyRef?.current;
+      if (body) {
+        const bodyRect = body.getBoundingClientRect();
+        cachedContainerRef.current = bodyRect;
+        setContainerRect(bodyRect); // share with auto-scroll — calculated once, never changes
       }
 
       const cloneEl = refs.cloneRef?.current;
-      if (cloneEl) {
-        cloneEl.style.transform = `translate(${translate.x}px, ${translate.y}px)`;
-      }
-
-      const tableEl = refs.tableRef?.current;
-      if (tableEl) {
-        tableEl.style.touchAction = "none";
-      }
+      if (cloneEl) cloneEl.style.transform = `translate(${translate.x}px, ${translate.y}px)`;
 
       dispatch({
         type: "dragStart",
         value: {
-          rect: {
-            draggedItemHeight: itemRect.height,
-            draggedItemWidth: itemRect.width,
-          },
-          dragged: {
-            initial: initial,
-            translate: translate,
-            draggedID: id,
-            isDragging: true,
-            sourceIndex: sourceIndex,
-          },
-          dragType: dragtype,
+          rect: { draggedItemHeight: itemRect.height, draggedItemWidth: itemRect.width },
+          dragged: { initial, translate, draggedID: id, isDragging: true, sourceIndex },
+          dragType: dtype,
         },
       });
 
-      const syncCloneScroll = () => {
-        const cloneEl = refs.cloneRef?.current;
-        const body = refs.bodyRef.current;
-        if (cloneEl && body) {
-          if (dragtype === "row") {
-            cloneEl.scrollLeft = body.scrollLeft;
-          } else if (dragtype === "column") {
-            const cloneBody = cloneEl.querySelector('.clone-body');
-            if (cloneBody) cloneBody.scrollTop = body.scrollTop;
-          }
-        }
+      // Sync clone scroll (immediate + after React render)
+      const syncScroll = () => {
+        const c = refs.cloneRef?.current;
+        const b = refs.bodyRef?.current;
+        if (!c || !b) return;
+        if (dtype === "row") c.scrollLeft = b.scrollLeft;
+        else { const cb = c.querySelector('.clone-body') as HTMLElement | null; if (cb) cb.scrollTop = b.scrollTop; }
       };
-      syncCloneScroll();
-      requestAnimationFrame(() => {
-        syncCloneScroll();
-        requestAnimationFrame(syncCloneScroll);
-      });
+      syncScroll();
+      requestAnimationFrame(() => { syncScroll(); requestAnimationFrame(syncScroll); });
     },
-    [dispatch, refs, computeRowItems, computeColumnItems]
+    [dispatch, refs, computeRowItems, computeColumnItems, pointerRef, setContainerRect]
   );
-
-  // ── Mouse: start drag immediately ─────────────────────
-  const dragStart = useCallback(
-    (e) => {
-      if (e.target === e.currentTarget) return;
-      if (isTouchActiveRef.current) return;
-      beginDrag(e, e.clientX, e.clientY);
-    },
-    [beginDrag]
-  );
-
-  // ── Long-press for touch ──────────────────────────────
-  const cancelLongPress = useCallback(() => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-    pendingTouchEventRef.current = null;
-    window.removeEventListener("touchmove", touchMoveBeforeDragRef.current);
-    window.removeEventListener("touchend", touchEndBeforeDragRef.current);
-  }, []);
-
-  const touchStart = useCallback(
-    (e) => {
-      if (e.target === e.currentTarget) return;
-
-      // Check if the touch is on a draggable element before starting long-press
-      let el = e.target;
-      let isDraggable = false;
-      while (el) {
-        if (el.dataset?.contextid) break;
-        if (el.dataset?.disabled === "true") break;
-        if (el.dataset?.id) { isDraggable = true; break; }
-        el = el.parentNode;
-      }
-      if (!isDraggable) return;
-
-      cancelLongPress();
-      isTouchActiveRef.current = true;
-
-      const touch = e.touches[0];
-      touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
-      pendingTouchEventRef.current = e;
-
-      // Once long-press is pending, use non-passive touchmove to block
-      // page scroll after the threshold is NOT exceeded (finger held still)
-      let longPressConfirmed = false;
-
-      const onMove = (ev: TouchEvent) => {
-        const t = ev.touches[0];
-        const dx = t.clientX - touchStartPosRef.current.x;
-        const dy = t.clientY - touchStartPosRef.current.y;
-        if (!longPressConfirmed && (Math.abs(dx) > LONG_PRESS_MOVE_THRESHOLD || Math.abs(dy) > LONG_PRESS_MOVE_THRESHOLD)) {
-          // Finger moved too far — cancel long press, allow normal scroll
-          cancelLongPress();
-          setTimeout(() => { isTouchActiveRef.current = false; }, 400);
-        } else if (longPressConfirmed) {
-          // Long press fired — block page scroll
-          ev.preventDefault();
-        }
-      };
-      const onEnd = () => {
-        cancelLongPress();
-        setTimeout(() => { isTouchActiveRef.current = false; }, 400);
-      };
-      touchMoveBeforeDragRef.current = onMove;
-      touchEndBeforeDragRef.current = onEnd;
-      // MUST be non-passive so we can preventDefault after long-press confirms
-      window.addEventListener("touchmove", onMove, { passive: false });
-      window.addEventListener("touchend", onEnd, false);
-
-      longPressTimerRef.current = setTimeout(() => {
-        longPressTimerRef.current = null;
-        longPressConfirmed = true;
-
-        // Set touch-action before starting drag
-        const tableEl = refs.tableRef?.current;
-        if (tableEl) tableEl.style.touchAction = "none";
-
-        const saved = pendingTouchEventRef.current;
-        pendingTouchEventRef.current = null;
-        if (saved) {
-          beginDrag(saved, touch.clientX, touch.clientY);
-        }
-        // Keep onMove active — it calls preventDefault to block page scroll.
-        // Replace onEnd to trigger dragEnd instead of cancelLongPress.
-        window.removeEventListener("touchend", onEnd);
-        const onDragEnd = () => {
-          window.removeEventListener("touchmove", onMove);
-          window.removeEventListener("touchend", onDragEnd);
-          dragEnd();
-        };
-        window.addEventListener("touchend", onDragEnd, false);
-      }, LONG_PRESS_DELAY);
-    },
-    [beginDrag, cancelLongPress, refs.tableRef]
-  );
-
 
   // ── Drag end ──────────────────────────────────────────
+
   const dragEnd = useCallback(() => {
     cancelLongPress();
     setTimeout(() => { isTouchActiveRef.current = false; }, 400);
@@ -471,277 +276,190 @@ const useDragContextEvents = (refs, dragged, dispatch, dragType, options, onDrag
     const finalSource = sourceIndexRef.current;
     const finalDragType = dragTypeRef.current;
 
+    // Preserve scroll position — clearShiftTransforms causes reflow that can shift it
+    const body = refs.bodyRef?.current;
+    const savedScrollTop = body?.scrollTop ?? 0;
+    const savedScrollLeft = body?.scrollLeft ?? 0;
+
     cachedItemsRef.current = null;
     cachedContainerRef.current = null;
 
     const cloneEl = refs.cloneRef?.current;
-    if (cloneEl) {
-      cloneEl.style.transform = `translate(0px, 0px)`;
-      cloneEl.scrollLeft = 0;
-    }
-
-    const tableEl = refs.tableRef?.current;
-    if (tableEl) {
-      tableEl.style.touchAction = "";
-    }
+    if (cloneEl) { cloneEl.style.transform = "translate(0px, 0px)"; cloneEl.scrollLeft = 0; }
 
     clearShiftTransforms();
 
-    if (onDragEnd && finalSource !== null && finalTarget !== null && finalDragType) {
-      onDragEnd({
-        sourceIndex: finalSource,
-        targetIndex: finalTarget,
-        dragType: finalDragType,
-      });
+    if (onDragEnd && finalSource !== null && finalTarget !== null && (finalDragType === "row" || finalDragType === "column")) {
+      onDragEnd({ sourceIndex: finalSource, targetIndex: finalTarget, dragType: finalDragType });
     }
 
-    dispatch({
-      type: "dragEnd",
-      value: {
-        targetIndex: finalTarget,
-        sourceIndex: finalSource,
-      },
-    });
+    dispatch({ type: "dragEnd", value: { targetIndex: finalTarget, sourceIndex: finalSource } });
     stopAutoScroll();
+
+    // Restore scroll position — clearShiftTransforms + React re-render (from
+    // onDragEnd/dispatch) cause reflows that shift scrollTop by ~1 row height.
+    // Restore synchronously AND after React's next paint.
+    if (body) {
+      body.scrollTop = savedScrollTop;
+      body.scrollLeft = savedScrollLeft;
+      requestAnimationFrame(() => {
+        body.scrollTop = savedScrollTop;
+        body.scrollLeft = savedScrollLeft;
+      });
+    }
 
     dragTypeRef.current = null;
     sourceIndexRef.current = null;
     targetIndexRef.current = null;
-  }, [dispatch, stopAutoScroll, refs.cloneRef, refs.tableRef, clearShiftTransforms, cancelLongPress, onDragEnd]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, stopAutoScroll, refs.bodyRef, refs.cloneRef, clearShiftTransforms, onDragEnd]);
 
-  // ── Scroll handler during drag ────────────────────────
-  const handleScrollDuringDrag = useCallback(() => {
-    cachedItemsRef.current = null;
-    cachedContainerRef.current = null;
+  // ── Stable ref for dragMove (avoids circular dep with useLongPress) ──
+  const dragMoveRef = useRef<(x: number, y: number) => void>(() => {});
 
-    const src = sourceIndexRef.current;
-    const tgt = targetIndexRef.current;
-    const dtype = dragTypeRef.current;
-    if (src !== null && tgt !== null) {
-      applyShiftTransforms(src, tgt, dtype);
-    }
+  // ── Long press (mobile) ───────────────────────────────
 
-    // Sync clone scroll
-    const cloneEl = refs.cloneRef?.current;
-    const body = refs.bodyRef?.current;
-    if (cloneEl && body) {
-      if (dtype === "row") {
-        cloneEl.scrollLeft = body.scrollLeft;
-      } else if (dtype === "column") {
-        const cloneBody = cloneEl.querySelector('.clone-body');
-        if (cloneBody) cloneBody.scrollTop = body.scrollTop;
-      }
-    }
+  const { touchStart, cancelLongPress, isTouchActiveRef } = useLongPress(
+    refs, beginDrag, dragEnd,
+    (x: number, y: number) => dragMoveRef.current(x, y),
+  );
 
-    // Re-compute drop index using last pointer position
-    const refContainer = refs.bodyRef?.current;
-    if (refContainer && dtype) {
-      const last = lastClientRef.current;
-      let containerRect = cachedContainerRef.current;
-      if (!containerRect) {
-        containerRect = refContainer.getBoundingClientRect();
-        cachedContainerRef.current = containerRect;
-      }
+  // ── Mouse: start drag immediately ─────────────────────
 
-      let dropIndex = 0;
-      if (dtype === "row") {
-        let items = cachedItemsRef.current;
-        if (!items) {
-          items = computeRowItems();
-          cachedItemsRef.current = items;
-        }
-        if (items && items.length > 0) {
-          dropIndex = binarySearchDropIndex(
-            last.y - containerRect.top + refContainer.scrollTop,
-            items
-          );
-        }
-      } else {
-        let items = cachedItemsRef.current;
-        if (!items) {
-          items = computeColumnItems();
-          cachedItemsRef.current = items;
-        }
-        if (items && items.length > 0) {
-          dropIndex = binarySearchDropIndexHeader(last.x, items);
-        }
-      }
+  const dragStart = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (e.target === e.currentTarget) return;
+      if (isTouchActiveRef.current) return;
+      beginDrag(e, e.clientX, e.clientY);
+    },
+    [beginDrag, isTouchActiveRef]
+  );
 
-      if (dropIndex !== targetIndexRef.current) {
-        targetIndexRef.current = dropIndex;
-        applyShiftTransforms(src, dropIndex, dtype);
-      }
-    }
-  }, [applyShiftTransforms, refs.cloneRef, refs.bodyRef, computeRowItems, computeColumnItems]);
 
-  // ── Drag (pointermove handler) ────────────────────────
-  const drag = useCallback(
-    (e) => {
-      const clientX = e.clientX ?? 0;
-      const clientY = e.clientY ?? 0;
+  // ── Core drag move (shared by mouse + touch) ─────────
 
+  const dragMove = useCallback(
+    (clientX: number, clientY: number) => {
       const initial = initialRef.current;
-      const tx = clientX - initial.x;
-      const ty = clientY - initial.y;
 
       lastClientRef.current = { x: clientX, y: clientY };
       pointerRef.current = { x: clientX, y: clientY };
 
+      // Move clone
       const cloneEl = refs.cloneRef?.current;
       if (cloneEl) {
-        cloneEl.style.transform = `translate(${tx}px, ${ty}px)`;
-
-        const body = refs.bodyRef.current;
+        cloneEl.style.transform = `translate(${clientX - initial.x}px, ${clientY - initial.y}px)`;
+        const body = refs.bodyRef?.current;
         if (body) {
-          if (dragTypeRef.current === "row") {
-            cloneEl.scrollLeft = body.scrollLeft;
-          } else if (dragTypeRef.current === "column") {
-            const cloneBody = cloneEl.querySelector('.clone-body');
-            if (cloneBody) cloneBody.scrollTop = body.scrollTop;
-          }
+          if (dragTypeRef.current === "row") cloneEl.scrollLeft = body.scrollLeft;
+          else { const cb = cloneEl.querySelector('.clone-body') as HTMLElement | null; if (cb) cb.scrollTop = body.scrollTop; }
         }
       }
 
-      const refContainer = refs.bodyRef.current;
-      if (!refContainer) return;
+      // Drop target + auto-scroll
+      const container = refs.bodyRef?.current;
+      if (!container) return;
 
-      let containerRect = cachedContainerRef.current;
-      if (!containerRect) {
-        containerRect = refContainer.getBoundingClientRect();
-        cachedContainerRef.current = containerRect;
-      }
-      const { top, bottom, left, right } = containerRect;
+      let rect = cachedContainerRef.current;
+      if (!rect) { rect = container.getBoundingClientRect(); cachedContainerRef.current = rect; }
 
       let dropIndex = 0;
-      const currentDragType = dragTypeRef.current || dragType;
+      const dtype = dragTypeRef.current || dragType;
 
-      if (currentDragType === "row") {
-        const containerScrollTop = refContainer.scrollTop;
-        const containerTopOffset = containerRect.top;
-
-        let items = cachedItemsRef.current;
-        if (!items) {
-          items = computeRowItems();
-          cachedItemsRef.current = items;
-        }
-
-        if (items && items.length > 0) {
-          dropIndex = binarySearchDropIndex(
-            clientY - containerTopOffset + containerScrollTop,
-            items
-          );
-        }
-
-        if (clientY < top + 30) {
-          startAutoScroll(-5, refContainer, "vertical");
-          cachedItemsRef.current = null;
-        } else if (clientY > bottom - 30) {
-          startAutoScroll(5, refContainer, "vertical");
-          cachedItemsRef.current = null;
-        } else {
-          stopAutoScroll();
-        }
+      // Auto-scroll edge zone check
+      if (dtype === "row") {
+        if (clientY < rect.top + 30) { startAutoScroll(-5, container, "vertical"); cachedItemsRef.current = null; }
+        else if (clientY > rect.bottom - 30) { startAutoScroll(5, container, "vertical"); cachedItemsRef.current = null; }
+        else stopAutoScroll();
       } else {
-        let items = cachedItemsRef.current;
-        if (!items) {
-          items = computeColumnItems();
-          cachedItemsRef.current = items;
-        }
+        if (clientX < rect.left + 30) { startAutoScroll(-5, container, "horizontal"); cachedItemsRef.current = null; }
+        else if (clientX > rect.right - 30) { startAutoScroll(5, container, "horizontal"); cachedItemsRef.current = null; }
+        else stopAutoScroll();
+      }
 
-        if (items && items.length > 0) {
-          dropIndex = binarySearchDropIndexHeader(clientX, items);
-        }
-
-        if (clientX < left + 30) {
-          startAutoScroll(-5, refContainer, "horizontal");
-          cachedItemsRef.current = null;
-        } else if (clientX > right - 30) {
-          startAutoScroll(5, refContainer, "horizontal");
-          cachedItemsRef.current = null;
-        } else {
-          stopAutoScroll();
-        }
+      // Drop index — always recompute items fresh (positions change during scroll)
+      let items: RowItem[] | ColumnItem[] | null;
+      if (dtype === "row") {
+        items = computeRowItems();
+        cachedItemsRef.current = items;
+        if (items && items.length > 0) dropIndex = binarySearchDropIndex(clientY - rect.top + container.scrollTop, items);
+      } else {
+        items = computeColumnItems();
+        cachedItemsRef.current = items;
+        if (items && items.length > 0) dropIndex = binarySearchDropIndexHeader(clientX, items);
       }
 
       if (dropIndex !== targetIndexRef.current) {
         targetIndexRef.current = dropIndex;
-        requestAnimationFrame(() => {
-          applyShiftTransforms(sourceIndexRef.current, dropIndex, currentDragType);
-        });
+        requestAnimationFrame(() => applyShiftTransforms(sourceIndexRef.current, dropIndex, dtype));
       }
     },
-    [
-      dragType,
-      refs.bodyRef,
-      refs.cloneRef,
-      computeRowItems,
-      computeColumnItems,
-      startAutoScroll,
-      stopAutoScroll,
-      applyShiftTransforms,
-    ]
+    [dragType, refs.bodyRef, refs.cloneRef, computeRowItems, computeColumnItems, startAutoScroll, stopAutoScroll, applyShiftTransforms, pointerRef]
   );
 
+  // Keep ref in sync for useLongPress
+  dragMoveRef.current = dragMove;
+
   // ── Drag cancel (Escape) ──────────────────────────────
+
   const dragCancel = useCallback(() => {
     cancelLongPress();
     cachedItemsRef.current = null;
     cachedContainerRef.current = null;
 
     const cloneEl = refs.cloneRef?.current;
-    if (cloneEl) {
-      cloneEl.style.transform = `translate(0px, 0px)`;
-      cloneEl.scrollLeft = 0;
-    }
-
-    const tableEl = refs.tableRef?.current;
-    if (tableEl) tableEl.style.touchAction = "";
+    if (cloneEl) { cloneEl.style.transform = "translate(0px, 0px)"; cloneEl.scrollLeft = 0; }
 
     clearShiftTransforms();
-
-    dispatch({
-      type: "dragEnd",
-      value: { targetIndex: null, sourceIndex: null },
-    });
+    dispatch({ type: "dragEnd", value: { targetIndex: null, sourceIndex: null } });
     stopAutoScroll();
 
     dragTypeRef.current = null;
     sourceIndexRef.current = null;
     targetIndexRef.current = null;
-  }, [dispatch, stopAutoScroll, refs.cloneRef, refs.tableRef, clearShiftTransforms, cancelLongPress]);
+  }, [dispatch, stopAutoScroll, refs.cloneRef, clearShiftTransforms, cancelLongPress]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape") dragCancel();
   }, [dragCancel]);
 
-  // ── Event listeners while dragging ────────────────────
+  // ── touch-action:none on body (permanent) ───────────────────
+  // Chrome Android locks in touch-action at pointerdown time. Must be
+  // set BEFORE any touch — dynamic setting is ignored. JS scrolling
+  // in useLongPress replaces native scroll.
   useEffect(() => {
-    if (dragged.isDragging) {
-      const body = refs.bodyRef.current;
-      const tableEl = refs.tableRef?.current;
+    const body = refs.bodyRef?.current;
+    if (body) body.style.touchAction = "none";
+    return () => { if (body) body.style.touchAction = ""; };
+  }, [refs.bodyRef]);
 
-      // Use pointermove on window — works for both mouse and touch.
-      // No setPointerCapture (it fires pointercancel on active touches).
-      const onPointerMove = (e: PointerEvent) => {
-        drag(e);
-      };
+  // ── Pointer event listeners while dragging ────────────
 
-      window.addEventListener("pointermove", onPointerMove);
-      window.addEventListener("pointerup", dragEnd);
-      window.addEventListener("pointercancel", dragEnd);
-      window.addEventListener("keydown", handleKeyDown);
-      body?.addEventListener("scroll", handleScrollDuringDrag, { passive: true });
+  useEffect(() => {
+    if (!dragged.isDragging) return;
 
-      return () => {
-        window.removeEventListener("pointermove", onPointerMove);
-        window.removeEventListener("pointerup", dragEnd);
-        window.removeEventListener("pointercancel", dragEnd);
-        window.removeEventListener("keydown", handleKeyDown);
-        body?.removeEventListener("scroll", handleScrollDuringDrag);
-        if (tableEl) tableEl.style.touchAction = "";
-      };
-    }
-  }, [dragged.isDragging, drag, dragEnd, dragCancel, handleKeyDown, handleScrollDuringDrag, refs.bodyRef, refs.tableRef]);
+    // All pointer types (mouse, pen, touch) — same path for all.
+    // With touch-action:none set permanently, pointer events fire reliably for touch.
+    // useLongPress touchmove/touchend may also fire — double calls are safe.
+    const onPointerMove = (e: PointerEvent) => {
+      dragMove(e.clientX, e.clientY);
+    };
+    const onPointerEnd = () => {
+      dragEnd();
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerEnd);
+    window.addEventListener("pointercancel", onPointerEnd);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerEnd);
+      window.removeEventListener("pointercancel", onPointerEnd);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [dragged.isDragging, dragMove, dragEnd, handleKeyDown]);
 
   return { dragStart, touchStart };
 };

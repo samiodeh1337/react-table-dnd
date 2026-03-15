@@ -131,7 +131,7 @@ const placeholderStyle: React.CSSProperties = {
 const COL_WIDTH = 140;
 
 const VirtualExample = () => {
-  const [data, setData] = useState(() => generateData(100_000));
+  const [data, setData] = useState(() => generateData(10_000));
   const [cols, setCols] = useState(() =>
     COLUMN_DEFS.map((def, i) => ({ ...def, id: `col-${i}`, width: COL_WIDTH }))
   );
@@ -168,7 +168,7 @@ const VirtualExample = () => {
 
   return (
     <div style={{ width: "100%" }}>
-      <h3 style={{ margin: "0 0 12px", color: "#e4e4e7", fontSize: 14 }}>Virtual — {data.toLocaleString().length > 3 ? "100,000" : data.length} rows x {cols.length} cols</h3>
+      <h3 style={{ margin: "0 0 12px", color: "#e4e4e7", fontSize: 14 }}>Virtual — {data.length.toLocaleString()} rows x {cols.length} cols</h3>
       <TableContainer
         options={options}
         onDragEnd={handleDragEnd}

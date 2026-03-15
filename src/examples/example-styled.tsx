@@ -37,12 +37,20 @@ const ROLE_COLORS: Record<string, string> = {
 
 const AVATAR_COLORS = ["#6366f1", "#ec4899", "#14b8a6", "#f59e0b", "#8b5cf6", "#06b6d4", "#f43f5e", "#22c55e"];
 
+const GripIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ opacity: 0.35, flexShrink: 0 }}>
+    <circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/>
+    <circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/>
+    <circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/>
+  </svg>
+);
+
 const th: React.CSSProperties = {
-  display: "flex", alignItems: "center", height: 48, padding: "0 18px",
+  display: "flex", alignItems: "center", gap: 6, height: 48, padding: "0 14px",
   fontSize: 11, fontWeight: 700, color: "#64748b",
   background: "linear-gradient(180deg, #0f172a 0%, #1e293b 100%)",
   borderBottom: "1px solid #334155", textTransform: "uppercase",
-  letterSpacing: "0.08em",
+  letterSpacing: "0.08em", cursor: "grab",
 };
 
 const td: React.CSSProperties = {
@@ -136,16 +144,34 @@ const ShowcaseExample = () => {
     }, []
   );
 
-  const renderCell = (row: Row, colId: string, ri: number) => {
-    if (colId === "name") return <><Avatar name={String(row.name)} index={ri} /><span style={{ fontWeight: 500 }}>{row.name}</span></>;
-    if (colId === "role") return <RoleChip role={String(row.role)} />;
-    if (colId === "status") return <StatusBadge status={String(row.status)} />;
-    if (colId === "score") return <ScoreBar score={Number(row.score)} />;
-    return <span style={{ color: "#94a3b8" }}>{row[colId]}</span>;
+  const renderCell = (row: Row, colId: string, ri: number, isFirst: boolean) => {
+    const grip = isFirst ? <GripIcon /> : null;
+    if (colId === "name") return <>{grip}<Avatar name={String(row.name)} index={ri} /><span style={{ fontWeight: 500 }}>{row.name}</span></>;
+    if (colId === "role") return <>{grip}<RoleChip role={String(row.role)} /></>;
+    if (colId === "status") return <>{grip}<StatusBadge status={String(row.status)} /></>;
+    if (colId === "score") return <>{grip}<ScoreBar score={Number(row.score)} /></>;
+    return <>{grip}<span style={{ color: "#94a3b8" }}>{row[colId]}</span></>;
   };
 
   return (
     <div style={{ width: "100%" }}>
+      <div style={{
+        display: "flex", gap: 16, marginBottom: 12, fontSize: 12, color: "#64748b",
+        flexWrap: "wrap", alignItems: "center",
+      }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#1e293b", color: "#94a3b8" }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2"><path d="M7 10l5-5 5 5M7 14l5 5 5-5"/></svg>
+          Drag rows up or down to reorder
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#1e293b", color: "#94a3b8" }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2"><path d="M10 7l-5 5 5 5M14 7l5 5-5 5"/></svg>
+          Drag column headers left or right
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#1e293b", color: "#94a3b8" }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          Mobile: long-press to drag
+        </span>
+      </div>
       <TableContainer
         options={options} onDragEnd={handleDragEnd}
         renderPlaceholder={() => <Placeholder />}
@@ -158,6 +184,7 @@ const ShowcaseExample = () => {
         <TableHeader>
           {cols.map((col, i) => (
             <ColumnCell key={col.id} id={col.id} index={i} width={col.width} style={th}>
+              <GripIcon />
               {col.title}
             </ColumnCell>
           ))}
@@ -167,8 +194,8 @@ const ShowcaseExample = () => {
             <BodyRow key={row.id} id={row.id} index={ri}>
               {cols.map((col, ci) => (
                 <RowCell key={col.id} index={ci} width={col.width}
-                  style={{ ...td, background: ri % 2 === 0 ? "#0f172a" : "#131c2e" }}>
-                  {renderCell(row, col.id, ri)}
+                  style={{ ...td, gap: ci === 0 ? 6 : 0, cursor: "grab", background: ri % 2 === 0 ? "#0f172a" : "#131c2e" }}>
+                  {renderCell(row, col.id, ri, ci === 0)}
                 </RowCell>
               ))}
             </BodyRow>
