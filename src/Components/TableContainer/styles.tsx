@@ -6,11 +6,18 @@ import styled from "styled-components";
 export const Styles = styled.div`
   height: 100%;
 
+  /* Structural elements: full reset */
   &, & .table, & .header, & .thead, & .body, & .ibody,
-  & .draggable, & .tr, & .th, & .td {
+  & .draggable, & .tr {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+  }
+
+  /* User-facing cells: only box-sizing reset — no padding/margin override
+     so className and styled-components can customize freely */
+  & .th, & .td {
+    box-sizing: border-box;
   }
 
   &.is-dragging, &.is-dragging * {

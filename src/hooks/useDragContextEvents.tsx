@@ -240,8 +240,17 @@ const useDragContextEvents = (
         setContainerRect(bodyRect); // share with auto-scroll — calculated once, never changes
       }
 
+      const tableEl = refs.tableRef?.current;
+      if (tableEl) tableEl.style.touchAction = "none";
+
       const cloneEl = refs.cloneRef?.current;
       if (cloneEl) cloneEl.style.transform = `translate(${translate.x}px, ${translate.y}px)`;
+
+      // Refresh table dimensions so the clone size is always accurate
+      const tableRect = refs.tableRef?.current;
+      if (tableRect) {
+        (dispatch as (a: any) => void)({ type: "setTableDimensions", value: { height: tableRect.offsetHeight, width: tableRect.offsetWidth } });
+      }
 
       dispatch({
         type: "dragStart",
@@ -287,6 +296,9 @@ const useDragContextEvents = (
     const cloneEl = refs.cloneRef?.current;
     if (cloneEl) { cloneEl.style.transform = "translate(0px, 0px)"; cloneEl.scrollLeft = 0; }
 
+    const tableEl = refs.tableRef?.current;
+    if (tableEl) tableEl.style.touchAction = "";
+
     clearShiftTransforms();
 
     if (onDragEnd && finalSource !== null && finalTarget !== null && (finalDragType === "row" || finalDragType === "column")) {
@@ -312,7 +324,7 @@ const useDragContextEvents = (
     sourceIndexRef.current = null;
     targetIndexRef.current = null;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, stopAutoScroll, refs.bodyRef, refs.cloneRef, clearShiftTransforms, onDragEnd]);
+  }, [dispatch, stopAutoScroll, refs.bodyRef, refs.cloneRef, refs.tableRef, clearShiftTransforms, onDragEnd]);
 
   // ── Stable ref for dragMove (avoids circular dep with useLongPress) ──
   const dragMoveRef = useRef<(x: number, y: number) => void>(() => {});
@@ -409,6 +421,8 @@ const useDragContextEvents = (
 
     const cloneEl = refs.cloneRef?.current;
     if (cloneEl) { cloneEl.style.transform = "translate(0px, 0px)"; cloneEl.scrollLeft = 0; }
+    const tableEl = refs.tableRef?.current;
+    if (tableEl) tableEl.style.touchAction = "";
 
     clearShiftTransforms();
     dispatch({ type: "dragEnd", value: { targetIndex: null, sourceIndex: null } });
@@ -417,7 +431,7 @@ const useDragContextEvents = (
     dragTypeRef.current = null;
     sourceIndexRef.current = null;
     targetIndexRef.current = null;
-  }, [dispatch, stopAutoScroll, refs.cloneRef, clearShiftTransforms, cancelLongPress]);
+  }, [dispatch, stopAutoScroll, refs.cloneRef, refs.tableRef, clearShiftTransforms, cancelLongPress]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape") dragCancel();

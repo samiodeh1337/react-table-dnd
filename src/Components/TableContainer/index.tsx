@@ -197,11 +197,11 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
         height:
           state.dragType === "row"
             ? state.rect.draggedItemHeight
-            : `${state.tableDimensions.height - 20}px`,
+            : `${state.tableDimensions.height}px`,
         width:
           state.dragType === "column"
             ? `${state.rect.draggedItemWidth}px`
-            : `${state.tableDimensions.width - 20}px`,
+            : `${state.tableDimensions.width}px`,
         overflow: "hidden",
         boxShadow: state.dragged.isDragging
           ? "0 0 10px 0 rgba(0, 0, 0, 0.1)"

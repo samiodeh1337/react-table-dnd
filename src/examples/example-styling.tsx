@@ -47,11 +47,11 @@ const StylingExample = () => {
         .my-col:hover { background: #221f0e; }
         .my-body    {}
         .my-row     { display: flex; }
-        .my-row:hover .my-cell { background: #1a1810 !important; }
+        .my-row:hover .my-cell { background: #1a1810; }
         .my-cell    { display: flex; align-items: center; height: 38px;
                       padding: 0 14px; font-size: 13px; color: #d6c896;
                       border-bottom: 1px solid #2a2510; cursor: grab; }
-        .my-cell-alt { background: #111008 !important; }
+        .my-cell-alt { background: #111008; }
       `}</style>
 
       <div style={{ marginBottom: 12 }}>

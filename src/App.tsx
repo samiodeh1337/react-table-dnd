@@ -378,7 +378,7 @@ function App() {
       <section className="section-wide" id="demos">
         <h2>Live Demos</h2>
         <p className="subtitle">Try dragging rows and columns in the tables below.</p>
-        <div className="example-tabs-row">
+        <div className="example-tabs-scroll">
           <div className="example-tabs">
             {EXAMPLES.map((ex) => (
               <button
@@ -390,26 +390,29 @@ function App() {
               </button>
             ))}
           </div>
-          <button
-            className={`code-toggle-btn ${showCode ? "code-toggle-active" : ""}`}
-            onClick={() => setShowCode((v) => !v)}
-            title={showCode ? "Hide source" : "View source"}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="16 18 22 12 16 6" />
-              <polyline points="8 6 2 12 8 18" />
-            </svg>
-            {showCode ? "Hide code" : "View code"}
-          </button>
         </div>
 
-        {showCode ? (
-          <CodeBlock tsxCode={activeConfig.tsx} jsxCode={activeConfig.jsx} />
-        ) : (
-          <div className="example-container">
-            <ActiveComponent />
+        <div className="example-wrapper">
+          <div className="example-toolbar">
+            <button
+              className={`code-toggle-btn ${showCode ? "code-toggle-active" : ""}`}
+              onClick={() => setShowCode((v) => !v)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="16 18 22 12 16 6" />
+                <polyline points="8 6 2 12 8 18" />
+              </svg>
+              {showCode ? "Hide code" : "View code"}
+            </button>
           </div>
-        )}
+          {showCode ? (
+            <CodeBlock tsxCode={activeConfig.tsx} jsxCode={activeConfig.jsx} />
+          ) : (
+            <div className="example-container">
+              <ActiveComponent />
+            </div>
+          )}
+        </div>
       </section>
 
       <hr className="divider" />
