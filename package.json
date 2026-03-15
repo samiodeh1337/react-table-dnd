@@ -42,7 +42,7 @@
     "type": "git",
     "url": "git+https://github.com/samiodeh1337/sortable-table.git"
   },
-  "homepage": "https://github.com/samiodeh1337/sortable-table.git#readme",
+  "homepage": "https://samiodeh1337.github.io/sortable-table/",
   "peerDependencies": {
     "react": ">=17.0.0",
     "react-dom": ">=17.0.0"

@@ -332,7 +332,7 @@ function App() {
 
       {/* Hero */}
       <section className="hero">
-        <div className="badge">v1.0.0 &middot; MIT License</div>
+        <div className="badge">v1.1.8 &middot; MIT License</div>
         <h1>Drag-and-drop sorting<br />for React tables</h1>
         <p className="hero-desc">
           Reorder rows and columns with smooth animations, auto-scroll,
@@ -357,12 +357,12 @@ function App() {
       {/* Features */}
       <section className="features">
         {[
-          { icon: "⇅", title: "Row & Column Drag", desc: "Reorder both rows and columns independently with automatic direction detection." },
-          { icon: "⚡", title: "Smooth Animations", desc: "Direct DOM transforms bypass React re-renders for buttery 60fps drag animations." },
-          { icon: "↔", title: "Auto-scroll", desc: "Automatically scrolls when dragging near edges, with smooth acceleration and decay." },
-          { icon: "🔒", title: "Drag Range Constraints", desc: "Lock specific rows or columns in place by setting drag range boundaries." },
-          { icon: "🔄", title: "Virtual Scrolling", desc: "Works with @tanstack/react-virtual to handle 100k+ rows with no performance drop." },
-          { icon: "🎨", title: "Fully Styleable", desc: "Every component accepts className and style. No opinionated styles to fight against." },
+          { icon: "⇅", title: "Row & Column Drag", desc: "Reorder both rows and columns with smooth 60fps animations. Direct DOM transforms — no React re-renders during drag." },
+          { icon: "📱", title: "Mobile & Desktop", desc: "Long-press to drag on touch devices, click-drag on desktop. Auto-scroll near edges with smooth acceleration." },
+          { icon: "🔄", title: "Virtual Scrolling", desc: "Works with @tanstack/react-virtual to handle 100k+ rows. Drag handles, range constraints, and full TypeScript support." },
+          { icon: "🎨", title: "Fully Styleable", desc: "className and style on every component. Works with Tailwind, styled-components, CSS modules — zero opinionated styles." },
+          { icon: "🔒", title: "Drag Constraints", desc: "Lock specific rows or columns in place. Set drag ranges to control exactly which items are draggable." },
+          { icon: "🔧", title: "TypeScript First", desc: "Full type definitions for all props, callbacks, and options. Autocomplete and type safety out of the box." },
         ].map((f) => (
           <div className="feature-card" key={f.title}>
             <div className="feature-icon">{f.icon}</div>
@@ -469,7 +469,9 @@ function App() {
         <div className="api-table-wrap"><table className="api-table">
           <thead><tr><th>Prop</th><th>Type</th><th>Description</th></tr></thead>
           <tbody>
-            <tr><td><code>width</code></td><td><code>number</code></td><td>Fixed width in pixels.</td></tr>
+            <tr><td><code>id</code></td><td><code>string | number</code> <strong>(required)</strong></td><td>Unique identifier for this column.</td></tr>
+            <tr><td><code>index</code></td><td><code>number</code> <strong>(required)</strong></td><td>Column index in the current order.</td></tr>
+            <tr><td><code>width</code></td><td><code>number</code></td><td>Width in pixels — sets both <code>width</code> and <code>flex-basis</code>. Defaults to 50.</td></tr>
             <tr><td><code>children</code></td><td><code>ReactNode</code></td><td>Content inside the header cell.</td></tr>
             <tr><td><code>className</code></td><td><code>string</code></td><td>CSS class.</td></tr>
             <tr><td><code>style</code></td><td><code>CSSProperties</code></td><td>Inline styles.</td></tr>
@@ -492,6 +494,8 @@ function App() {
         <div className="api-table-wrap"><table className="api-table">
           <thead><tr><th>Prop</th><th>Type</th><th>Description</th></tr></thead>
           <tbody>
+            <tr><td><code>id</code></td><td><code>string | number</code> <strong>(required)</strong></td><td>Unique identifier for this row.</td></tr>
+            <tr><td><code>index</code></td><td><code>number</code> <strong>(required)</strong></td><td>Row index in the current order.</td></tr>
             <tr><td><code>children</code></td><td><code>ReactNode</code></td><td>Should contain <code>RowCell</code> elements.</td></tr>
             <tr><td><code>className</code></td><td><code>string</code></td><td>CSS class.</td></tr>
             <tr><td><code>style</code></td><td><code>CSSProperties</code></td><td>Inline styles.</td></tr>
@@ -499,13 +503,12 @@ function App() {
         </table></div>
 
         <h3 id="api-rowcell"><code className="inline-code">&lt;RowCell&gt;</code></h3>
-        <p>A cell within a body row.</p>
+        <p>A cell within a body row. Must match the column order of <code className="inline-code">ColumnCell</code> elements.</p>
         <div className="api-table-wrap"><table className="api-table">
           <thead><tr><th>Prop</th><th>Type</th><th>Description</th></tr></thead>
           <tbody>
-            <tr><td><code>index</code></td><td><code>number</code> <strong>(required)</strong></td><td>Column index — used to sync position during column drags.</td></tr>
-            <tr><td><code>width</code></td><td><code>number</code></td><td>Fixed width in pixels.</td></tr>
-            <tr><td><code>isClone</code></td><td><code>true</code></td><td>Marks cell as drag clone (internal use).</td></tr>
+            <tr><td><code>index</code></td><td><code>number</code> <strong>(required)</strong></td><td>Column index — must match the corresponding <code>ColumnCell</code> index.</td></tr>
+            <tr><td><code>width</code></td><td><code>number</code></td><td>Width in pixels — sets both <code>width</code> and <code>flex-basis</code>. Should match the corresponding <code>ColumnCell</code> width.</td></tr>
             <tr><td><code>children</code></td><td><code>ReactNode</code></td><td>Content to render.</td></tr>
             <tr><td><code>className</code></td><td><code>string</code></td><td>CSS class.</td></tr>
             <tr><td><code>style</code></td><td><code>CSSProperties</code></td><td>Inline styles.</td></tr>
