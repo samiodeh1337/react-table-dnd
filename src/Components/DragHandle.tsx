@@ -1,25 +1,21 @@
-import React, { memo } from "react";
-import type { ReactNode, CSSProperties } from "react";
+import React, { memo } from 'react'
+import type { ReactNode, CSSProperties } from 'react'
 
 interface DragHandleProps {
-  children: ReactNode;
-  className?: string;
-  style?: CSSProperties;
+  children: ReactNode
+  className?: string
+  style?: CSSProperties
 }
 
-const DragHandle: React.FC<DragHandleProps> = memo(({
-  children,
-  className,
-  style,
-}) => (
+const DragHandle: React.FC<DragHandleProps> = memo(({ children, className, style }) => (
   <div
     data-drag-handle="true"
     className={className}
-    style={{ cursor: "-webkit-grab", display: "inline-flex", alignItems: "center", ...style }}
+    style={{ cursor: '-webkit-grab', display: 'inline-flex', alignItems: 'center', ...style }}
   >
     {children}
   </div>
-));
+))
 
-DragHandle.displayName = "DragHandle";
-export default DragHandle;
+DragHandle.displayName = 'DragHandle'
+export default DragHandle
