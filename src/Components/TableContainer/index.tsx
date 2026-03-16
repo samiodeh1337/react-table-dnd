@@ -228,11 +228,13 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
           >
             <div style={{ flexShrink: 0, order: -1 }}>{state.clone}</div>
           </div>
-          {renderPlaceholder && (
-            <div ref={placeholderRef} style={PLACEHOLDER_STYLES}>
-              {renderPlaceholder()}
-            </div>
-          )}
+          <div ref={placeholderRef} style={PLACEHOLDER_STYLES}>
+            {renderPlaceholder ? (
+              renderPlaceholder()
+            ) : (
+              <div style={{ width: '100%', height: '100%' }} />
+            )}
+          </div>
           <div
             data-contextid="context"
             ref={localRef}
