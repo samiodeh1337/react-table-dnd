@@ -39,8 +39,13 @@ const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, s
     ],
   )
 
-  // Detect if this draggable contains a DragHandle
+  // Detect if this draggable contains a DragHandle — cached once after mount
   const innerRef = useRef<HTMLDivElement>(null)
+  const hasHandleRef = useRef(false)
+
+  useEffect(() => {
+    hasHandleRef.current = !!innerRef.current?.querySelector('[data-drag-handle]')
+  }, [children])
 
   // Transform is applied directly via DOM in useDragContextEvents
   const draggableInnerStyles: CSSProperties = useMemo(
@@ -64,6 +69,13 @@ const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, s
     // Skip touch — touch drag clone is set via long-press in beginDrag
     if (event.pointerType === 'touch') return
     if (disableDrag) return
+
+    // If this draggable has a DragHandle, only set clone if the click originated from the handle
+    if (hasHandleRef.current) {
+      const target = event.target as HTMLElement
+      if (!target.closest('[data-drag-handle]')) return
+    }
+
     requestAnimationFrame(() => {
       dispatch({
         type: 'setClone',
