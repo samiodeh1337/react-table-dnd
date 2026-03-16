@@ -9,6 +9,7 @@ import {
   TableBody,
   BodyRow,
   RowCell,
+  type DragEndResult,
 } from 'flexitablesort'
 import { generateRows, arrayMove } from './helpers'
 
@@ -51,14 +52,11 @@ const FixedExample = () => {
   const [cols, setCols] = useState(INIT_COLS)
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 
-  const handleDragEnd = useCallback(
-    (r: { sourceIndex: number; targetIndex: number; dragType: string }) => {
-      if (r.sourceIndex === r.targetIndex) return
-      if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-      else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-    },
-    [],
-  )
+  const handleDragEnd = useCallback((r: DragEndResult) => {
+    if (r.sourceIndex === r.targetIndex) return
+    if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+    else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+  }, [])
 
   return (
     <div style={{ width: '100%' }}>
@@ -93,7 +91,7 @@ const FixedExample = () => {
             <BodyRow key={row.id} id={row.id} index={ri}>
               {cols.map((col, ci) => (
                 <RowCell key={col.id} index={ci} style={td}>
-                  {(row as any)[col.id]}
+                  {row[col.id]}
                 </RowCell>
               ))}
             </BodyRow>

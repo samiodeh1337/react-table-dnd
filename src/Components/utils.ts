@@ -1,5 +1,6 @@
-// @ts-nocheck
-export const binarySearchDropIndex = (mouseY, items) => {
+import type { ColumnItem, RowItem } from '../hooks/types'
+
+export const binarySearchDropIndex = (mouseY: number, items: RowItem[]) => {
   const relativeMouseY = mouseY
 
   let low = 0
@@ -22,7 +23,7 @@ export const binarySearchDropIndex = (mouseY, items) => {
   return +items[low].index
 }
 
-export const binarySearchDropIndexHeader = (mouseX, items) => {
+export const binarySearchDropIndexHeader = (mouseX: number, items: ColumnItem[]) => {
   const relativeMouseX = mouseX
 
   let low = 0
@@ -45,14 +46,14 @@ export const binarySearchDropIndexHeader = (mouseX, items) => {
   return +items[low].index
 }
 
-export const isIndexOutOfRange = (index, start, end) => {
-  if (start !== undefined && index < start) {
-    return true
-  }
+export const isIndexOutOfRange = (
+  index: string | number,
+  start?: number,
+  end?: number,
+): boolean => {
+  const numericIndex = Number(index) // convert to number
 
-  if (end !== undefined && index > end) {
-    return true
-  }
-
-  return false // Within range
+  if (start !== undefined && numericIndex < start) return true
+  if (end !== undefined && numericIndex > end) return true
+  return false
 }

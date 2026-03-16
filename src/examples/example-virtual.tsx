@@ -2,7 +2,7 @@
  * Example: Virtual table — 10k rows, 20 columns, fixed column widths
  * Uses @tanstack/react-virtual for row virtualization.
  */
-/* eslint-disable no-unused-vars */
+
 import React, { useCallback, useRef, useState, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { TableContainer, TableHeader, ColumnCell, TableBody, BodyRow, RowCell } from '../Components'
@@ -139,6 +139,7 @@ const VirtualExample = () => {
   )
   const bodyRef = useRef<HTMLDivElement>(null)
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: data.length,
     getScrollElement: () => bodyRef.current,
@@ -155,7 +156,7 @@ const VirtualExample = () => {
   )
 
   const handleDragEnd = useCallback(
-    (result: { sourceIndex: number; targetIndex: number; dragType: string }) => {
+    (result: { sourceIndex: number; targetIndex: number; dragType: 'row' | 'column' }) => {
       if (result.sourceIndex === result.targetIndex) return
       if (result.dragType === 'row') {
         setData((prev) => arrayMove(prev, result.sourceIndex, result.targetIndex))

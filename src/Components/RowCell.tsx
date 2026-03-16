@@ -8,6 +8,7 @@ interface RowCellProps {
   isClone?: true
   style?: React.CSSProperties
   className?: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [propName: string]: any
 }
 

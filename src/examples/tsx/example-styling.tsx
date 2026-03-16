@@ -9,6 +9,7 @@ import {
   TableBody,
   BodyRow,
   RowCell,
+  type DragEndResult,
 } from 'flexitablesort'
 import { generateRows, arrayMove } from './helpers'
 
@@ -26,14 +27,11 @@ const StylingExample = () => {
   const [cols, setCols] = useState(INIT_COLS)
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 
-  const handleDragEnd = useCallback(
-    (r: { sourceIndex: number; targetIndex: number; dragType: string }) => {
-      if (r.sourceIndex === r.targetIndex) return
-      if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-      else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-    },
-    [],
-  )
+  const handleDragEnd = useCallback((r: DragEndResult) => {
+    if (r.sourceIndex === r.targetIndex) return
+    if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+    else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+  }, [])
 
   return (
     <div style={{ width: '100%' }}>
@@ -124,7 +122,7 @@ const StylingExample = () => {
                   className={`my-cell${ri % 2 !== 0 ? ' my-cell-alt' : ''}`}
                   style={{ width: col.width }}
                 >
-                  {(row as any)[col.id]}
+                  {row[col.id]}
                 </RowCell>
               ))}
             </BodyRow>

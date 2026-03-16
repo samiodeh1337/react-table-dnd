@@ -8,6 +8,7 @@ interface BodyRowProps {
   children: ReactNode
   style?: CSSProperties
   className?: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [propName: string]: any
 }
 

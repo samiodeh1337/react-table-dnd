@@ -9,6 +9,7 @@ import React, { useCallback, useState, useMemo } from 'react'
 import styled from 'styled-components'
 import { TableContainer, TableHeader, ColumnCell, TableBody, BodyRow, RowCell } from '../Components'
 import { generateRows, arrayMove } from './example-data'
+import type { DragEndResult } from '../Components'
 
 const StyledTable = styled(TableContainer)`
   height: 420px;
@@ -62,14 +63,11 @@ const StyledCompExample = () => {
   const [cols, setCols] = useState(INIT_COLS)
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 
-  const handleDragEnd = useCallback(
-    (r: { sourceIndex: number; targetIndex: number; dragType: string }) => {
-      if (r.sourceIndex === r.targetIndex) return
-      if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-      else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-    },
-    [],
-  )
+  const handleDragEnd = useCallback((r: DragEndResult) => {
+    if (r.sourceIndex === r.targetIndex) return
+    if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+    else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+  }, [])
 
   return (
     <div style={{ width: '100%' }}>

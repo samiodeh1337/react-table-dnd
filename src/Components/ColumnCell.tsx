@@ -9,6 +9,7 @@ interface ColumnCellProps {
   width?: number
   style?: React.CSSProperties
   className?: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [propName: string]: any
 }
 

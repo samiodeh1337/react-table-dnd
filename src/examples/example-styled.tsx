@@ -5,7 +5,8 @@
  */
 import React, { useCallback, useState, useMemo } from 'react'
 import { TableContainer, TableHeader, ColumnCell, TableBody, BodyRow, RowCell } from '../Components'
-import { generateRows, arrayMove, Row } from './example-data'
+import { generateRows, arrayMove, type Row } from './example-data'
+import type { DragEndResult } from '../Components'
 
 const INIT_COLS = [
   { id: 'name', title: 'Name', width: 200 },
@@ -248,14 +249,11 @@ const ShowcaseExample = () => {
     return s
   }, [data])
 
-  const handleDragEnd = useCallback(
-    (r: { sourceIndex: number; targetIndex: number; dragType: string }) => {
-      if (r.sourceIndex === r.targetIndex) return
-      if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-      else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-    },
-    [],
-  )
+  const handleDragEnd = useCallback((r: DragEndResult) => {
+    if (r.sourceIndex === r.targetIndex) return
+    if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+    else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+  }, [])
 
   const renderCell = (row: Row, colId: string) => {
     if (colId === 'name')

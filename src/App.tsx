@@ -323,7 +323,15 @@ function BasicDemo() {
           Try it — drag rows and columns:
         </p>
         <_TC
-          onDragEnd={({ sourceIndex, targetIndex, dragType }: any) => {
+          onDragEnd={({
+            sourceIndex,
+            targetIndex,
+            dragType,
+          }: {
+            sourceIndex: number
+            targetIndex: number
+            dragType: 'row' | 'column'
+          }) => {
             if (dragType === 'column') setCols(move(cols, sourceIndex, targetIndex))
             else setRows(move(rows, sourceIndex, targetIndex))
           }}

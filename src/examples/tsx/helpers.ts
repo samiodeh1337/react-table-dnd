@@ -11,6 +11,7 @@ export interface Row {
   salary: string
   joined: string
   score: number
+  [key: string]: string | number
 }
 
 const ROLES = ['Engineer', 'Designer', 'PM', 'QA', 'DevOps', 'Analyst', 'Lead', 'Manager']
