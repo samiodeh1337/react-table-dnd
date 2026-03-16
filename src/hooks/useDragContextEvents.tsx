@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { flushSync } from "react-dom";
 import useAutoScroll from "./useAutoScroll";
 import useLongPress from "./useLongPress";
 import { binarySearchDropIndex, binarySearchDropIndexHeader } from "../Components/utils";
 import type { HookRefs, DraggedState, DragAction, Options, DragEndResult, RowItem, ColumnItem, Point } from "./types";
 
-const TRANSITION_STYLE = "all 450ms cubic-bezier(0.2, 0, 0, 1)";
+const TRANSITION_STYLE = "transform 450ms cubic-bezier(0.2, 0, 0, 1)";
+const DROP_ANIM_MS = 200;
 
 // ── Hook ────────────────────────────────────────────────
 
@@ -30,6 +32,7 @@ const useDragContextEvents = (
   const targetIndexRef = useRef<number | null>(null);
   const draggedSizeRef = useRef({ width: 0, height: 0 });
   const lastClientRef = useRef<Point>({ x: 0, y: 0 });
+  const dragEndFiredRef = useRef(false);
 
   // ── Compute items ───────────────────────────────────────
 
@@ -139,7 +142,6 @@ const useDragContextEvents = (
       } else if (dtype === "column") {
         shiftElements(refs.headerRef?.current ?? null, '.draggable[data-type="column"]', "X", size.width);
 
-        // Also shift body cells for column drag
         const body = refs.bodyRef?.current;
         if (body) {
           const cells = body.querySelectorAll('.td[data-col-index]');
@@ -170,15 +172,15 @@ const useDragContextEvents = (
       for (let i = 0; i < draggables.length; i++) {
         draggables[i].removeAttribute("data-drop-target");
         const inner = draggables[i].firstElementChild as HTMLElement | null;
-        if (inner) { inner.style.transform = ""; inner.style.transition = ""; }
+        if (inner) { inner.style.transition = "none"; inner.style.transform = ""; }
       }
     }
     const body = refs.bodyRef?.current;
     if (body) {
       const cells = body.querySelectorAll('.td[data-col-index]');
       for (let i = 0; i < cells.length; i++) {
+        (cells[i] as HTMLElement).style.transition = "none";
         (cells[i] as HTMLElement).style.transform = "";
-        (cells[i] as HTMLElement).style.transition = "";
       }
     }
   }, [refs.bodyRef, refs.headerRef, refs.placeholderRef]);
@@ -215,8 +217,8 @@ const useDragContextEvents = (
       dragTypeRef.current = dtype;
       sourceIndexRef.current = sourceIndex;
       targetIndexRef.current = null;
+      dragEndFiredRef.current = false;
 
-      // For touch, Draggable's onPointerDown skips touch — dispatch synthetic event
       if (isTouch) {
         draggableEl.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "mouse" }));
       }
@@ -237,7 +239,7 @@ const useDragContextEvents = (
       if (body) {
         const bodyRect = body.getBoundingClientRect();
         cachedContainerRef.current = bodyRect;
-        setContainerRect(bodyRect); // share with auto-scroll — calculated once, never changes
+        setContainerRect(bodyRect);
       }
 
       const tableEl = refs.tableRef?.current;
@@ -246,7 +248,6 @@ const useDragContextEvents = (
       const cloneEl = refs.cloneRef?.current;
       if (cloneEl) cloneEl.style.transform = `translate(${translate.x}px, ${translate.y}px)`;
 
-      // Refresh table dimensions so the clone size is always accurate
       const tableRect = refs.tableRef?.current;
       if (tableRect) {
         (dispatch as (a: any) => void)({ type: "setTableDimensions", value: { height: tableRect.offsetHeight, width: tableRect.offsetWidth } });
@@ -261,7 +262,6 @@ const useDragContextEvents = (
         },
       });
 
-      // Sync clone scroll (immediate + after React render)
       const syncScroll = () => {
         const c = refs.cloneRef?.current;
         const b = refs.bodyRef?.current;
@@ -275,42 +275,31 @@ const useDragContextEvents = (
     [dispatch, refs, computeRowItems, computeColumnItems, pointerRef, setContainerRect]
   );
 
-  // ── Drag end ──────────────────────────────────────────
+  // ── Finalize drop (called after optional clone animation) ──
 
-  const dragEnd = useCallback(() => {
-    cancelLongPress();
-    setTimeout(() => { isTouchActiveRef.current = false; }, 400);
-
-    const finalTarget = targetIndexRef.current;
-    const finalSource = sourceIndexRef.current;
-    const finalDragType = dragTypeRef.current;
-
-    // Preserve scroll position — clearShiftTransforms causes reflow that can shift it
-    const body = refs.bodyRef?.current;
-    const savedScrollTop = body?.scrollTop ?? 0;
-    const savedScrollLeft = body?.scrollLeft ?? 0;
-
-    cachedItemsRef.current = null;
-    cachedContainerRef.current = null;
-
+  const finalizeDrop = useCallback((
+    finalSource: number | null,
+    finalTarget: number | null,
+    finalDragType: string | null | undefined,
+    savedScrollTop: number,
+    savedScrollLeft: number,
+  ) => {
     const cloneEl = refs.cloneRef?.current;
-    if (cloneEl) { cloneEl.style.transform = "translate(0px, 0px)"; cloneEl.scrollLeft = 0; }
+    if (cloneEl) cloneEl.style.visibility = "hidden";
 
     const tableEl = refs.tableRef?.current;
     if (tableEl) tableEl.style.touchAction = "";
 
+    flushSync(() => {
+      if (onDragEnd && finalSource !== null && finalTarget !== null && (finalDragType === "row" || finalDragType === "column")) {
+        onDragEnd({ sourceIndex: finalSource, targetIndex: finalTarget, dragType: finalDragType });
+      }
+      dispatch({ type: "dragEnd", value: { targetIndex: finalTarget, sourceIndex: finalSource } });
+    });
+
     clearShiftTransforms();
 
-    if (onDragEnd && finalSource !== null && finalTarget !== null && (finalDragType === "row" || finalDragType === "column")) {
-      onDragEnd({ sourceIndex: finalSource, targetIndex: finalTarget, dragType: finalDragType });
-    }
-
-    dispatch({ type: "dragEnd", value: { targetIndex: finalTarget, sourceIndex: finalSource } });
-    stopAutoScroll();
-
-    // Restore scroll position — clearShiftTransforms + React re-render (from
-    // onDragEnd/dispatch) cause reflows that shift scrollTop by ~1 row height.
-    // Restore synchronously AND after React's next paint.
+    const body = refs.bodyRef?.current;
     if (body) {
       body.scrollTop = savedScrollTop;
       body.scrollLeft = savedScrollLeft;
@@ -319,14 +308,50 @@ const useDragContextEvents = (
         body.scrollLeft = savedScrollLeft;
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, refs.bodyRef, refs.cloneRef, refs.tableRef, clearShiftTransforms, onDragEnd]);
+
+  // ── Drag end ──────────────────────────────────────────
+
+  const dragEnd = useCallback(() => {
+    if (dragEndFiredRef.current) return;
+    dragEndFiredRef.current = true;
+
+    cancelLongPress();
+    setTimeout(() => { isTouchActiveRef.current = false; }, 400);
+
+    const finalTarget = targetIndexRef.current;
+    const finalSource = sourceIndexRef.current;
+    const finalDragType = dragTypeRef.current;
+
+    const body = refs.bodyRef?.current;
+    const savedScrollTop = body?.scrollTop ?? 0;
+    const savedScrollLeft = body?.scrollLeft ?? 0;
+
+    cachedItemsRef.current = null;
+    cachedContainerRef.current = null;
+    stopAutoScroll();
 
     dragTypeRef.current = null;
     sourceIndexRef.current = null;
     targetIndexRef.current = null;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, stopAutoScroll, refs.bodyRef, refs.cloneRef, refs.tableRef, clearShiftTransforms, onDragEnd]);
 
-  // ── Stable ref for dragMove (avoids circular dep with useLongPress) ──
+    // Animate clone to drop gap, then finalize
+    const cloneEl = refs.cloneRef?.current;
+    const ph = refs.placeholderRef?.current;
+    if (cloneEl && ph && ph.style.display !== "none") {
+      const toX = parseFloat(ph.style.left) || 0;
+      const toY = parseFloat(ph.style.top) || 0;
+      cloneEl.style.transition = `transform ${DROP_ANIM_MS}ms cubic-bezier(0.2, 0, 0, 1)`;
+      cloneEl.style.transform = `translate(${toX}px, ${toY}px)`;
+      setTimeout(() => finalizeDrop(finalSource, finalTarget, finalDragType, savedScrollTop, savedScrollLeft), DROP_ANIM_MS);
+    } else {
+      finalizeDrop(finalSource, finalTarget, finalDragType, savedScrollTop, savedScrollLeft);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stopAutoScroll, refs.bodyRef, refs.placeholderRef, refs.cloneRef, finalizeDrop]);
+
+  // ── Stable ref for dragMove ──
   const dragMoveRef = useRef<(x: number, y: number) => void>(() => {});
 
   // ── Long press (mobile) ───────────────────────────────
@@ -347,17 +372,17 @@ const useDragContextEvents = (
     [beginDrag, isTouchActiveRef]
   );
 
-
   // ── Core drag move (shared by mouse + touch) ─────────
 
   const dragMove = useCallback(
     (clientX: number, clientY: number) => {
+      if (dragEndFiredRef.current) return;
+
       const initial = initialRef.current;
 
       lastClientRef.current = { x: clientX, y: clientY };
       pointerRef.current = { x: clientX, y: clientY };
 
-      // Move clone
       const cloneEl = refs.cloneRef?.current;
       if (cloneEl) {
         cloneEl.style.transform = `translate(${clientX - initial.x}px, ${clientY - initial.y}px)`;
@@ -368,7 +393,6 @@ const useDragContextEvents = (
         }
       }
 
-      // Drop target + auto-scroll
       const container = refs.bodyRef?.current;
       if (!container) return;
 
@@ -378,7 +402,6 @@ const useDragContextEvents = (
       let dropIndex = 0;
       const dtype = dragTypeRef.current || dragType;
 
-      // Auto-scroll edge zone check
       if (dtype === "row") {
         if (clientY < rect.top + 30) { startAutoScroll(-5, container, "vertical"); cachedItemsRef.current = null; }
         else if (clientY > rect.bottom - 30) { startAutoScroll(5, container, "vertical"); cachedItemsRef.current = null; }
@@ -389,7 +412,6 @@ const useDragContextEvents = (
         else stopAutoScroll();
       }
 
-      // Drop index — always recompute items fresh (positions change during scroll)
       let items: RowItem[] | ColumnItem[] | null;
       if (dtype === "row") {
         items = computeRowItems();
@@ -409,7 +431,6 @@ const useDragContextEvents = (
     [dragType, refs.bodyRef, refs.cloneRef, computeRowItems, computeColumnItems, startAutoScroll, stopAutoScroll, applyShiftTransforms, pointerRef]
   );
 
-  // Keep ref in sync for useLongPress
   dragMoveRef.current = dragMove;
 
   // ── Drag cancel (Escape) ──────────────────────────────
@@ -420,27 +441,37 @@ const useDragContextEvents = (
     cachedContainerRef.current = null;
 
     const cloneEl = refs.cloneRef?.current;
-    if (cloneEl) { cloneEl.style.transform = "translate(0px, 0px)"; cloneEl.scrollLeft = 0; }
+    if (cloneEl) cloneEl.style.visibility = "hidden";
     const tableEl = refs.tableRef?.current;
     if (tableEl) tableEl.style.touchAction = "";
 
-    clearShiftTransforms();
     dispatch({ type: "dragEnd", value: { targetIndex: null, sourceIndex: null } });
     stopAutoScroll();
 
     dragTypeRef.current = null;
     sourceIndexRef.current = null;
     targetIndexRef.current = null;
-  }, [dispatch, stopAutoScroll, refs.cloneRef, refs.tableRef, clearShiftTransforms, cancelLongPress]);
+  }, [dispatch, stopAutoScroll, refs.cloneRef, refs.tableRef, cancelLongPress]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape") dragCancel();
   }, [dragCancel]);
 
-  // ── touch-action:none on body (permanent) ───────────────────
-  // Chrome Android locks in touch-action at pointerdown time. Must be
-  // set BEFORE any touch — dynamic setting is ignored. JS scrolling
-  // in useLongPress replaces native scroll.
+  // ── Reset clone after drag ends ─────────────────────────
+  useLayoutEffect(() => {
+    if (!dragged.isDragging) {
+      clearShiftTransforms();
+      const cloneEl = refs.cloneRef?.current;
+      if (cloneEl) {
+        cloneEl.style.transition = "";
+        cloneEl.style.transform = "translate(0px, 0px)";
+        cloneEl.style.visibility = "";
+        cloneEl.scrollLeft = 0;
+      }
+    }
+  }, [dragged.isDragging, clearShiftTransforms, refs.cloneRef]);
+
+  // ── touch-action:none on body (permanent) ───────────────
   useEffect(() => {
     const body = refs.bodyRef?.current;
     if (body) body.style.touchAction = "none";
@@ -452,9 +483,6 @@ const useDragContextEvents = (
   useEffect(() => {
     if (!dragged.isDragging) return;
 
-    // All pointer types (mouse, pen, touch) — same path for all.
-    // With touch-action:none set permanently, pointer events fire reliably for touch.
-    // useLongPress touchmove/touchend may also fire — double calls are safe.
     const onPointerMove = (e: PointerEvent) => {
       dragMove(e.clientX, e.clientY);
     };
