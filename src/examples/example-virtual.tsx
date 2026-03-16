@@ -139,6 +139,7 @@ const VirtualExample = () => {
   )
   const bodyRef = useRef<HTMLDivElement>(null)
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: data.length,
     getScrollElement: () => bodyRef.current,
