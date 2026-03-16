@@ -57,6 +57,9 @@ export default function useLongPress(
       cancelLongPress();
       isTouchActiveRef.current = true;
 
+      // Prevent text selection during long-press
+      window.getSelection()?.removeAllRanges();
+
       const touch = e.touches[0];
       touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
       pendingTouchEventRef.current = e;
@@ -68,6 +71,10 @@ export default function useLongPress(
       let scrollPhase = false;
       let lastScrollY = touch.clientY;
       let lastScrollX = touch.clientX;
+
+      // Block text selection during long-press detection + drag
+      const onSelectStart = (ev: Event) => ev.preventDefault();
+      document.addEventListener("selectstart", onSelectStart);
 
       const onMove = (ev: TouchEvent) => {
         ev.preventDefault();
@@ -116,6 +123,7 @@ export default function useLongPress(
         tableEl.removeEventListener("touchmove", onMove);
         tableEl.removeEventListener("touchend", onEnd);
         tableEl.removeEventListener("touchcancel", onEnd);
+        document.removeEventListener("selectstart", onSelectStart);
         cleanupRef.current = null;
       };
 

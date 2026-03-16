@@ -332,7 +332,7 @@ function App() {
 
       {/* Hero */}
       <section className="hero">
-        <div className="badge">v1.1.8 &middot; MIT License</div>
+        <div className="badge">v1.1.9 &middot; MIT License</div>
         <h1>Drag-and-drop sorting<br />for React tables</h1>
         <p className="hero-desc">
           Reorder rows and columns with smooth animations, auto-scroll,

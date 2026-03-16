@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 // @ts-nocheck
-import React, { useEffect, useMemo, useRef, forwardRef } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, forwardRef } from "react";
 import { useTable } from "./TableContainer/useTable.tsx";
 import useAutoScroll from "../hooks/useAutoScroll.ts";
 import "./style.css";
@@ -39,7 +39,7 @@ const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(
       [state.bodyScrollBarWidth, state.dragged.isDragging, style]
     );
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       if (resolvedRef.current) {
         const widths = Array.from(
           resolvedRef.current.querySelectorAll(".th")
@@ -51,7 +51,7 @@ const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(
       }
     }, [children, dispatch, resolvedRef]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       if (resolvedRef.current) {
         const ids = Array.from(
           resolvedRef.current.querySelectorAll(".draggable")

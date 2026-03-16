@@ -21,7 +21,19 @@ export const Styles = styled.div`
   }
 
   &.is-dragging, &.is-dragging * {
+    cursor: -webkit-grabbing !important;
+    cursor: grabbing !important;
     user-select: none !important;
     -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
+  }
+
+  /* When a DragHandle exists, only the handle shows grab cursor */
+  &:not(.is-dragging) .draggable:has([data-drag-handle]) > div {
+    cursor: default !important;
+  }
+  &:not(.is-dragging) [data-drag-handle] {
+    cursor: -webkit-grab;
+    cursor: grab;
   }
 `;
