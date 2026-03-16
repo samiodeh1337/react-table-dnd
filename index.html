@@ -4,8 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>flexitablesort - Drag-and-Drop Sortable Table for React</title>
-    <meta name="description" content="React table component with drag-and-drop row and column reordering. 60fps animations, auto-scroll, virtual scrolling for 100k+ rows, mobile support, TypeScript, and full style control. Zero UI dependencies." />
-    <meta name="keywords" content="react, table, sortable, draggable, drag and drop, row reordering, column reordering, react table, data grid, virtual scrolling, react component, react drag drop, sortable table, react sortable, react grid, react data table, mobile drag drop" />
+    <meta
+      name="description"
+      content="React table component with drag-and-drop row and column reordering. 60fps animations, auto-scroll, virtual scrolling for 100k+ rows, mobile support, TypeScript, and full style control. Zero UI dependencies."
+    />
+    <meta
+      name="keywords"
+      content="react, table, sortable, draggable, drag and drop, row reordering, column reordering, react table, data grid, virtual scrolling, react component, react drag drop, sortable table, react sortable, react grid, react data table, mobile drag drop"
+    />
     <meta name="author" content="Sami Odeh" />
     <meta name="google-site-verification" content="f0PaeyhTa7SwH0QOxSzJQgT3qmC9BZfkR0t3XGovM5Y" />
     <meta name="robots" content="index, follow" />
@@ -15,19 +21,34 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="flexitablesort" />
     <meta property="og:title" content="flexitablesort - Drag-and-Drop Sortable Table for React" />
-    <meta property="og:description" content="Reorder rows and columns with smooth 60fps animations, auto-scroll, virtual scrolling for 100k+ rows, and full mobile support. Zero UI dependencies." />
+    <meta
+      property="og:description"
+      content="Reorder rows and columns with smooth 60fps animations, auto-scroll, virtual scrolling for 100k+ rows, and full mobile support. Zero UI dependencies."
+    />
     <meta property="og:url" content="https://samiodeh1337.github.io/sortable-table/" />
-    <meta property="og:image" content="https://samiodeh1337.github.io/sortable-table/og-image.png" />
+    <meta
+      property="og:image"
+      content="https://samiodeh1337.github.io/sortable-table/og-image.png"
+    />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="flexitablesort — drag-and-drop sortable table for React" />
+    <meta
+      property="og:image:alt"
+      content="flexitablesort — drag-and-drop sortable table for React"
+    />
     <meta property="og:locale" content="en_US" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="flexitablesort - Sortable Table for React" />
-    <meta name="twitter:description" content="Drag-and-drop row and column reordering for React tables. 60fps animations, virtual scrolling, mobile support." />
-    <meta name="twitter:image" content="https://samiodeh1337.github.io/sortable-table/og-image.png" />
+    <meta
+      name="twitter:description"
+      content="Drag-and-drop row and column reordering for React tables. 60fps animations, virtual scrolling, mobile support."
+    />
+    <meta
+      name="twitter:image"
+      content="https://samiodeh1337.github.io/sortable-table/og-image.png"
+    />
 
     <!-- Canonical URL -->
     <link rel="canonical" href="https://samiodeh1337.github.io/sortable-table/" />
@@ -41,98 +62,118 @@
 
     <!-- Structured Data: Software Application (better than SoftwareSourceCode for search) -->
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "flexitablesort",
-      "applicationCategory": "DeveloperApplication",
-      "operatingSystem": "Web",
-      "description": "React component library for drag-and-drop row and column reordering in tables. Features 60fps animations, auto-scroll, virtual scrolling for 100k+ rows, mobile long-press support, drag handles, and full style customization.",
-      "url": "https://samiodeh1337.github.io/sortable-table/",
-      "downloadUrl": "https://www.npmjs.com/package/flexitablesort",
-      "softwareVersion": "1.0.0",
-      "programmingLanguage": ["TypeScript", "React"],
-      "license": "https://opensource.org/licenses/MIT",
-      "author": {
-        "@type": "Person",
-        "name": "Sami Odeh",
-        "url": "https://github.com/samiodeh1337"
-      },
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD"
-      },
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": "5",
-        "ratingCount": "1"
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "flexitablesort",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Web",
+        "description": "React component library for drag-and-drop row and column reordering in tables. Features 60fps animations, auto-scroll, virtual scrolling for 100k+ rows, mobile long-press support, drag handles, and full style customization.",
+        "url": "https://samiodeh1337.github.io/sortable-table/",
+        "downloadUrl": "https://www.npmjs.com/package/flexitablesort",
+        "softwareVersion": "1.0.0",
+        "programmingLanguage": ["TypeScript", "React"],
+        "license": "https://opensource.org/licenses/MIT",
+        "author": {
+          "@type": "Person",
+          "name": "Sami Odeh",
+          "url": "https://github.com/samiodeh1337"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": "5",
+          "ratingCount": "1"
+        }
       }
-    }
     </script>
 
     <!-- Structured Data: BreadcrumbList -->
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      "itemListElement": [
-        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://samiodeh1337.github.io/sortable-table/" },
-        { "@type": "ListItem", "position": 2, "name": "Demos", "item": "https://samiodeh1337.github.io/sortable-table/#demos" },
-        { "@type": "ListItem", "position": 3, "name": "Getting Started", "item": "https://samiodeh1337.github.io/sortable-table/#getting-started" },
-        { "@type": "ListItem", "position": 4, "name": "API Reference", "item": "https://samiodeh1337.github.io/sortable-table/#api" }
-      ]
-    }
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://samiodeh1337.github.io/sortable-table/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Demos",
+            "item": "https://samiodeh1337.github.io/sortable-table/#demos"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Getting Started",
+            "item": "https://samiodeh1337.github.io/sortable-table/#getting-started"
+          },
+          {
+            "@type": "ListItem",
+            "position": 4,
+            "name": "API Reference",
+            "item": "https://samiodeh1337.github.io/sortable-table/#api"
+          }
+        ]
+      }
     </script>
 
     <!-- Structured Data: FAQPage -->
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "How do I install flexitablesort?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Run npm install flexitablesort. It requires React 17 or higher as a peer dependency."
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "How do I install flexitablesort?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Run npm install flexitablesort. It requires React 17 or higher as a peer dependency."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does flexitablesort support mobile drag and drop?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. It supports mobile via long-press to drag, with auto-scroll near edges and smooth touch event handling optimized for Chrome Android and Safari iOS."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can flexitablesort handle large datasets?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. It integrates with @tanstack/react-virtual for virtual scrolling, handling 100,000+ rows with no performance drop. Drag animations use direct DOM transforms at 60fps without React re-renders."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I customize the table styles?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Every component accepts className and style props. Works with plain CSS, CSS modules, Tailwind CSS, and styled-components. The library applies no opinionated styles to cells."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I lock specific rows or columns from being dragged?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Use the options prop with rowDragRange and columnDragRange to specify which rows and columns are draggable. Locked items stay in place."
+            }
           }
-        },
-        {
-          "@type": "Question",
-          "name": "Does flexitablesort support mobile drag and drop?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Yes. It supports mobile via long-press to drag, with auto-scroll near edges and smooth touch event handling optimized for Chrome Android and Safari iOS."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Can flexitablesort handle large datasets?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Yes. It integrates with @tanstack/react-virtual for virtual scrolling, handling 100,000+ rows with no performance drop. Drag animations use direct DOM transforms at 60fps without React re-renders."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "How do I customize the table styles?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Every component accepts className and style props. Works with plain CSS, CSS modules, Tailwind CSS, and styled-components. The library applies no opinionated styles to cells."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Can I lock specific rows or columns from being dragged?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Yes. Use the options prop with rowDragRange and columnDragRange to specify which rows and columns are draggable. Locked items stay in place."
-          }
-        }
-      ]
-    }
+        ]
+      }
     </script>
   </head>
   <body>
@@ -140,9 +181,21 @@
 
     <!-- SEO: Static content for crawlers that don't execute JavaScript -->
     <noscript>
-      <div style="max-width:800px;margin:0 auto;padding:40px 20px;font-family:system-ui,sans-serif;color:#333">
+      <div
+        style="
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 40px 20px;
+          font-family: system-ui, sans-serif;
+          color: #333;
+        "
+      >
         <h1>flexitablesort — Drag-and-Drop Sortable Table for React</h1>
-        <p>A React component library for drag-and-drop sortable tables with row and column reordering. 60fps animations, auto-scroll, virtual scrolling for 100k+ rows, mobile support, and full style control.</p>
+        <p>
+          A React component library for drag-and-drop sortable tables with row and column
+          reordering. 60fps animations, auto-scroll, virtual scrolling for 100k+ rows, mobile
+          support, and full style control.
+        </p>
 
         <h2>Features</h2>
         <ul>
@@ -167,17 +220,26 @@
           <li><strong>TableContainer</strong> — Root wrapper providing drag-and-drop context</li>
           <li><strong>TableHeader</strong> — Header row container</li>
           <li><strong>ColumnCell</strong> — Draggable column header cell</li>
-          <li><strong>TableBody</strong> — Body container with ref support for virtual scrolling</li>
+          <li>
+            <strong>TableBody</strong> — Body container with ref support for virtual scrolling
+          </li>
           <li><strong>BodyRow</strong> — Draggable table row</li>
           <li><strong>RowCell</strong> — Cell within a body row</li>
           <li><strong>DragHandle</strong> — Restricts drag to a specific grip element</li>
         </ul>
 
         <h2>Quick Start</h2>
-        <p>Wrap your table with TableContainer and pass an onDragEnd callback to handle reordering. Each ColumnCell and BodyRow is independently draggable. Supports both row and column reordering simultaneously.</p>
+        <p>
+          Wrap your table with TableContainer and pass an onDragEnd callback to handle reordering.
+          Each ColumnCell and BodyRow is independently draggable. Supports both row and column
+          reordering simultaneously.
+        </p>
 
         <h2>Styling</h2>
-        <p>Every component accepts className and style props. The library applies no opinionated styles — use plain CSS, Tailwind, styled-components, or any approach you prefer.</p>
+        <p>
+          Every component accepts className and style props. The library applies no opinionated
+          styles — use plain CSS, Tailwind, styled-components, or any approach you prefer.
+        </p>
 
         <p>
           <a href="https://github.com/samiodeh1337/sortable-table">View on GitHub</a> |

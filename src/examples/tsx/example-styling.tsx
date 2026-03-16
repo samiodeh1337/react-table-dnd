@@ -1,7 +1,7 @@
 /**
  * Example: Style overrides — inline styles and CSS className on every component.
  */
-import React, { useCallback, useState, useMemo } from "react";
+import React, { useCallback, useState, useMemo } from 'react'
 import {
   TableContainer,
   TableHeader,
@@ -9,33 +9,34 @@ import {
   TableBody,
   BodyRow,
   RowCell,
-} from "flexitablesort";
-import { generateRows, arrayMove } from "./helpers";
+} from 'flexitablesort'
+import { generateRows, arrayMove } from './helpers'
 
 const INIT_COLS = [
-  { id: "name",       title: "Name",   width: 160 },
-  { id: "role",       title: "Role",   width: 130 },
-  { id: "status",     title: "Status", width: 110 },
-  { id: "department", title: "Dept",   width: 130 },
-  { id: "location",   title: "City",   width: 120 },
-  { id: "score",      title: "Score",  width: 90  },
-];
+  { id: 'name', title: 'Name', width: 160 },
+  { id: 'role', title: 'Role', width: 130 },
+  { id: 'status', title: 'Status', width: 110 },
+  { id: 'department', title: 'Dept', width: 130 },
+  { id: 'location', title: 'City', width: 120 },
+  { id: 'score', title: 'Score', width: 90 },
+]
 
 const StylingExample = () => {
-  const [data, setData] = useState(() => generateRows(60));
-  const [cols, setCols] = useState(INIT_COLS);
-  const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), []);
+  const [data, setData] = useState(() => generateRows(60))
+  const [cols, setCols] = useState(INIT_COLS)
+  const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 
   const handleDragEnd = useCallback(
     (r: { sourceIndex: number; targetIndex: number; dragType: string }) => {
-      if (r.sourceIndex === r.targetIndex) return;
-      if (r.dragType === "row") setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex));
-      else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex));
-    }, []
-  );
+      if (r.sourceIndex === r.targetIndex) return
+      if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+      else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+    },
+    [],
+  )
 
   return (
-    <div style={{ width: "100%" }}>
+    <div style={{ width: '100%' }}>
       {/* Inline <style> injected for className demo */}
       <style>{`
         .my-table   { border-radius: 10px; overflow: hidden; border: 2px solid #f59e0b44; }
@@ -55,11 +56,46 @@ const StylingExample = () => {
       `}</style>
 
       <div style={{ marginBottom: 12 }}>
-        <p style={{ margin: "0 0 4px", color: "#fbbf24", fontSize: 13, fontWeight: 600 }}>
-          Styling with <code style={{ background: "#1c1a10", color: "#fbbf24", padding: "1px 6px", borderRadius: 4, fontSize: 12 }}>className</code>
+        <p style={{ margin: '0 0 4px', color: '#fbbf24', fontSize: 13, fontWeight: 600 }}>
+          Styling with{' '}
+          <code
+            style={{
+              background: '#1c1a10',
+              color: '#fbbf24',
+              padding: '1px 6px',
+              borderRadius: 4,
+              fontSize: 12,
+            }}
+          >
+            className
+          </code>
         </p>
-        <p style={{ margin: 0, fontSize: 12, color: "#8b8b94" }}>
-          Every component accepts <code style={{ background: "#1c1a10", color: "#d6c896", padding: "1px 5px", borderRadius: 4, fontSize: 11 }}>className</code> and <code style={{ background: "#1c1a10", color: "#d6c896", padding: "1px 5px", borderRadius: 4, fontSize: 11 }}>style</code> — full visual control, no overrides needed.
+        <p style={{ margin: 0, fontSize: 12, color: '#8b8b94' }}>
+          Every component accepts{' '}
+          <code
+            style={{
+              background: '#1c1a10',
+              color: '#d6c896',
+              padding: '1px 5px',
+              borderRadius: 4,
+              fontSize: 11,
+            }}
+          >
+            className
+          </code>{' '}
+          and{' '}
+          <code
+            style={{
+              background: '#1c1a10',
+              color: '#d6c896',
+              padding: '1px 5px',
+              borderRadius: 4,
+              fontSize: 11,
+            }}
+          >
+            style
+          </code>{' '}
+          — full visual control, no overrides needed.
         </p>
       </div>
 
@@ -68,17 +104,11 @@ const StylingExample = () => {
         onDragEnd={handleDragEnd}
         className="my-table"
         // inline style can coexist with className
-        style={{ height: 420, background: "#0f0e09" }}
+        style={{ height: 420, background: '#0f0e09' }}
       >
         <TableHeader className="my-header">
           {cols.map((col, i) => (
-            <ColumnCell
-              key={col.id}
-              id={col.id}
-              index={i}
-              width={col.width}
-              className="my-col"
-            >
+            <ColumnCell key={col.id} id={col.id} index={i} width={col.width} className="my-col">
               {col.title}
             </ColumnCell>
           ))}
@@ -91,7 +121,7 @@ const StylingExample = () => {
                   key={col.id}
                   index={ci}
                   // mix: base className + conditional alt + inline width
-                  className={`my-cell${ri % 2 !== 0 ? " my-cell-alt" : ""}`}
+                  className={`my-cell${ri % 2 !== 0 ? ' my-cell-alt' : ''}`}
                   style={{ width: col.width }}
                 >
                   {(row as any)[col.id]}
@@ -102,7 +132,7 @@ const StylingExample = () => {
         </TableBody>
       </TableContainer>
     </div>
-  );
-};
+  )
+}
 
-export default StylingExample;
+export default StylingExample
