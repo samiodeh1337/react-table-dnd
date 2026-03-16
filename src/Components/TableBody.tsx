@@ -1,14 +1,14 @@
-/* eslint-disable no-unused-vars */
-// @ts-nocheck
 import React, {
-  CSSProperties,
   forwardRef,
-  ReactElement,
-  ReactNode,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
+  useState,
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
 import { useTable } from './TableContainer/useTable'
@@ -20,8 +20,30 @@ interface TableBodyProps {
   className?: string
 }
 
+interface RowProps {
+  id: string | number
+  index: string | number
+  children: ReactNode
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any // allows extra props
+}
+
+interface CellProps {
+  index: string | number
+  isClone?: boolean
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any
+}
+
+const BODY_STYLES: CSSProperties = {
+  display: 'flex',
+  overflow: 'hidden',
+  flex: 1,
+}
+
 const TableBody = forwardRef<HTMLDivElement, TableBodyProps>(
   ({ children, style, className }, ref) => {
+    const [bodyScrollHeight, setBodyScrollHeight] = useState(0)
     const localRef = useRef<HTMLDivElement>(null)
     useImperativeHandle(ref, () => localRef.current!, [])
     const { state, dispatch } = useTable()
@@ -29,10 +51,10 @@ const TableBody = forwardRef<HTMLDivElement, TableBodyProps>(
     const clone = useMemo(() => {
       if (state.dragged.sourceIndex === null) return null
 
-      const collectBodyRows = (node: ReactNode): ReactElement[] => {
-        const rows: ReactElement[] = []
+      const collectBodyRows = (node: ReactNode): ReactElement<RowProps>[] => {
+        const rows: ReactElement<RowProps>[] = []
         React.Children.forEach(node, (child) => {
-          if (!React.isValidElement(child)) return
+          if (!React.isValidElement<RowProps>(child)) return
           if (
             child.props.id !== undefined &&
             child.props.index !== undefined &&
@@ -51,13 +73,14 @@ const TableBody = forwardRef<HTMLDivElement, TableBodyProps>(
       return bodyRows.map((row) => {
         const filteredCells = React.Children.toArray(row.props.children)
           .filter(
-            (cell): cell is ReactElement =>
-              React.isValidElement(cell) &&
+            (cell): cell is ReactElement<CellProps> =>
+              React.isValidElement<CellProps>(cell) &&
               String(cell.props.index) === String(state.dragged.sourceIndex),
           )
-          .map((cell) => React.cloneElement(cell, { isClone: true }))
+          .map((cell) => React.cloneElement(cell, { key: cell.props.index, isClone: true }))
 
         return React.cloneElement(row, {
+          key: row.props.id,
           ...row.props,
           children: filteredCells,
         })
@@ -65,7 +88,7 @@ const TableBody = forwardRef<HTMLDivElement, TableBodyProps>(
     }, [children, state.dragged.sourceIndex])
 
     useEffect(() => {
-      dispatch({ type: 'setBodyRef', value: localRef })
+      dispatch({ type: 'setRef', refName: 'bodyRef', value: localRef })
     }, [dispatch, localRef])
 
     const { BodyScrollHandle } = useAutoScroll(state.refs)
@@ -90,8 +113,11 @@ const TableBody = forwardRef<HTMLDivElement, TableBodyProps>(
       }
     }, [dispatch, localRef])
 
-    const bodyScrollHeight = localRef.current?.scrollHeight ?? 0
-
+    useLayoutEffect(() => {
+      if (localRef.current) {
+        setBodyScrollHeight(localRef.current.scrollHeight)
+      }
+    }, [localRef, children])
     return (
       <React.Fragment>
         {state.dragType === 'column' &&
@@ -103,7 +129,7 @@ const TableBody = forwardRef<HTMLDivElement, TableBodyProps>(
               style={{ overflow: 'hidden', flex: 1 }}
             >
               <div className="rbody" style={{ height: bodyScrollHeight, position: 'relative' }}>
-                {clone}
+                {clone && React.Children.toArray(clone)}
               </div>
             </div>,
             state.refs.cloneRef.current,
@@ -124,11 +150,4 @@ const TableBody = forwardRef<HTMLDivElement, TableBodyProps>(
   },
 )
 
-const BODY_STYLES: CSSProperties = {
-  display: 'flex',
-  overflow: 'hidden',
-  flex: 1,
-}
-
-TableBody.displayName = 'TableBody'
 export default TableBody

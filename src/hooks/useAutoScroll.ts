@@ -1,14 +1,15 @@
-import { useRef, useCallback } from 'react'
-import type { MutableRefObject } from 'react'
-
-interface Refs {
-  bodyRef: MutableRefObject<HTMLDivElement> | null
-  headerRef: MutableRefObject<HTMLDivElement> | null
-}
+import { useRef, useCallback, useEffect } from 'react'
+import type { HookRefs } from './types'
 
 const EDGE_ZONE = 30 // px from edge to trigger auto-scroll
 
-const useAutoScroll = (refs: Refs) => {
+const useAutoScroll = (refs: HookRefs) => {
+  const { headerRef, bodyRef } = refs
+
+  const autoScrollRef = useRef<
+    ((speed: number, ref: HTMLDivElement, dir: 'horizontal' | 'vertical') => void) | null
+  >(null)
+
   const isAutoScrollingHorizontal = useRef(false)
   const isAutoScrollingVertical = useRef(false)
   const decaySpeed = useRef(0)
@@ -80,11 +81,15 @@ const useAutoScroll = (refs: Refs) => {
       // Continue
       decaySpeed.current += speed / 1000
       animationFrameRef.current = requestAnimationFrame(() =>
-        autoScroll(speed + decaySpeed.current, ref, dir),
+        autoScrollRef.current?.(speed + decaySpeed.current, ref, dir),
       )
     },
     [],
   )
+
+  useEffect(() => {
+    autoScrollRef.current = autoScroll
+  }, [autoScroll])
 
   const startAutoScroll = useCallback(
     (speed: number, ref: HTMLDivElement, dir: 'horizontal' | 'vertical') => {
@@ -104,20 +109,20 @@ const useAutoScroll = (refs: Refs) => {
 
   const BodyScrollHandle = useCallback<React.UIEventHandler<HTMLDivElement>>(
     (e) => {
-      if (refs.headerRef?.current && e.currentTarget) {
-        refs.headerRef.current.scrollLeft = e.currentTarget.scrollLeft
+      if (headerRef?.current && e.currentTarget) {
+        headerRef.current.scrollLeft = e.currentTarget.scrollLeft
       }
     },
-    [refs],
+    [headerRef],
   )
 
   const HeaderScrollHandle = useCallback<React.UIEventHandler<HTMLDivElement>>(
     (e) => {
-      if (refs.bodyRef?.current && e.currentTarget) {
-        refs.bodyRef.current.scrollLeft = e.currentTarget.scrollLeft
+      if (bodyRef?.current && e.currentTarget) {
+        bodyRef.current.scrollLeft = e.currentTarget.scrollLeft
       }
     },
-    [refs],
+    [bodyRef],
   )
 
   return {

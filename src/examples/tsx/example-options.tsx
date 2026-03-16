@@ -10,6 +10,7 @@ import {
   TableBody,
   BodyRow,
   RowCell,
+  type DragEndResult,
 } from 'flexitablesort'
 import { generateRows, arrayMove } from './helpers'
 
@@ -69,14 +70,11 @@ const OptionsExample = () => {
     [data.length],
   )
 
-  const handleDragEnd = useCallback(
-    (r: { sourceIndex: number; targetIndex: number; dragType: string }) => {
-      if (r.sourceIndex === r.targetIndex) return
-      if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-      else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-    },
-    [],
-  )
+  const handleDragEnd = useCallback((r: DragEndResult) => {
+    if (r.sourceIndex === r.targetIndex) return
+    if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+    else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+  }, [])
 
   const isRowLocked = (i: number) => i < LOCKED_ROWS_START || i >= data.length - LOCKED_ROWS_END
   const isColLocked = (i: number) => i < LOCKED_COLS
@@ -136,7 +134,7 @@ const OptionsExample = () => {
                     index={ci}
                     style={locked || isColLocked(ci) ? tdLocked : tdNormal}
                   >
-                    {(row as any)[col.id]}
+                    {row[col.id]}
                   </RowCell>
                 ))}
               </BodyRow>

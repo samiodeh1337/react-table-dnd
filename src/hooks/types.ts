@@ -1,9 +1,12 @@
-import type { MutableRefObject } from 'react'
+import type { Dispatch, MutableRefObject, ReactElement, RefObject } from 'react'
+
+// --- Drag & Table types ---
+export type DragType = 'row' | 'column'
 
 export interface DragEndResult {
   sourceIndex: number
   targetIndex: number
-  dragType: 'row' | 'column'
+  dragType: DragType
 }
 
 export interface DraggedState {
@@ -13,6 +16,16 @@ export interface DraggedState {
   draggedID: string | null
   targetIndex: number | null
   sourceIndex: number | null
+}
+
+export interface RectState {
+  draggedItemWidth: number
+  draggedItemHeight: number
+}
+
+export interface TableDimensions {
+  width: number
+  height: number
 }
 
 export interface DragRange {
@@ -27,36 +40,60 @@ export interface Options {
 }
 
 export interface HookRefs {
-  tableRef: MutableRefObject<HTMLDivElement | null> | null
-  bodyRef: MutableRefObject<HTMLDivElement | null> | null
-  headerRef: MutableRefObject<HTMLDivElement | null> | null
-  cloneRef: MutableRefObject<HTMLDivElement | null> | null
-  placeholderRef: MutableRefObject<HTMLDivElement | null> | null
+  tableRef: RefObject<HTMLDivElement | null>
+  bodyRef: RefObject<HTMLDivElement | null>
+  headerRef: RefObject<HTMLDivElement | null>
+  cloneRef: RefObject<HTMLDivElement | null>
+  placeholderRef: RefObject<HTMLDivElement | null>
+}
+export interface TableState {
+  clone: ReactElement | null
+  dragged: DraggedState
+  dragType: DragType | null
+  rect: RectState
+  tableDimensions: TableDimensions
+  refs: HookRefs
+  bodyScrollBarWidth: number
+  options: Options
+  widths: number[]
+  columnIds: string[]
 }
 
-export type DragAction =
+// --- Actions ---
+export type TableAction =
+  | { type: 'setClone'; value: ReactElement | null }
+  | { type: 'setDragged'; value: Partial<DraggedState> }
+  | { type: 'setDragType'; value: DragType | null }
+  | { type: 'setTableDimensions'; value: TableDimensions }
+  | {
+      type: 'setRef'
+      refName: keyof HookRefs
+      value: MutableRefObject<HTMLDivElement | null> | null
+    }
+  | { type: 'setBodyScrollBarWidth'; value: number }
+  | { type: 'setWidths'; value: number[] }
+  | { type: 'setColumnIds'; value: string[] }
+  | { type: 'setOptions'; value: Partial<Options> }
   | {
       type: 'dragStart'
       value: {
-        rect: { draggedItemHeight: number; draggedItemWidth: number }
+        rect: RectState
         dragged: {
           initial: { x: number; y: number }
           translate: { x: number; y: number }
-          draggedID: string | undefined
+          draggedID: string | null
           isDragging: boolean
           sourceIndex: number
         }
-        dragType: string | undefined
+        dragType: DragType | null
       }
     }
   | {
       type: 'dragEnd'
-      value: {
-        targetIndex: number | null
-        sourceIndex: number | null
-      }
+      value: { targetIndex: number | null; sourceIndex: number | null }
     }
 
+// --- Optional: Row / Column helper types ---
 export interface RowItem {
   height: number
   itemTop: number
@@ -69,10 +106,15 @@ export interface ColumnItem {
   width: number
   itemLeft: number
   itemRight: number
-  index: string | undefined
+  index: string
 }
 
 export interface Point {
   x: number
   y: number
+}
+
+export interface TableContextType {
+  state: TableState
+  dispatch: Dispatch<TableAction>
 }

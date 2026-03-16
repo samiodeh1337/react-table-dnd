@@ -9,6 +9,7 @@ import {
   TableBody,
   BodyRow,
   RowCell,
+  type DragEndResult,
 } from 'flexitablesort'
 import { generateRows, arrayMove } from './helpers'
 
@@ -69,14 +70,11 @@ const CustomRowHeightsExample = () => {
   const [cols, setCols] = useState(INIT_COLS)
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 
-  const handleDragEnd = useCallback(
-    (r: { sourceIndex: number; targetIndex: number; dragType: string }) => {
-      if (r.sourceIndex === r.targetIndex) return
-      if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-      else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-    },
-    [],
-  )
+  const handleDragEnd = useCallback((r: DragEndResult) => {
+    if (r.sourceIndex === r.targetIndex) return
+    if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+    else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+  }, [])
 
   return (
     <div style={{ width: '100%' }}>
@@ -135,11 +133,11 @@ const CustomRowHeightsExample = () => {
                   >
                     {ci === 0 ? (
                       <span>
-                        {(row as any)[col.id]}
+                        {row[col.id]}
                         <span style={heightLabel}>{h}px</span>
                       </span>
                     ) : (
-                      (row as any)[col.id]
+                      row[col.id]
                     )}
                   </RowCell>
                 ))}

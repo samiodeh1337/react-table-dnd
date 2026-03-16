@@ -10,6 +10,7 @@ import {
   TableBody,
   BodyRow,
   RowCell,
+  type DragEndResult,
 } from 'flexitablesort'
 import { generateRows, arrayMove, Row } from './helpers'
 
@@ -97,19 +98,16 @@ const CustomStyledExample = () => {
   const [cols, setCols] = useState(INIT_COLS)
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 
-  const handleDragEnd = useCallback(
-    (r: { sourceIndex: number; targetIndex: number; dragType: string }) => {
-      if (r.sourceIndex === r.targetIndex) return
-      if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-      else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-    },
-    [],
-  )
+  const handleDragEnd = useCallback((r: DragEndResult) => {
+    if (r.sourceIndex === r.targetIndex) return
+    if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+    else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+  }, [])
 
   const renderCell = (row: Row, colId: string) => {
     if (colId === 'status') return <StatusBadge status={row.status} />
     if (colId === 'score') return <ScoreBar score={row.score} />
-    return (row as any)[colId]
+    return row[colId]
   }
 
   return (

@@ -2,12 +2,13 @@ import React, { useMemo, memo, useRef, useEffect } from 'react'
 import type { ReactElement, CSSProperties, ReactNode } from 'react'
 import { useTable } from './TableContainer/useTable'
 import { isIndexOutOfRange } from './utils'
+import type { DragType } from '../hooks/types'
 
 export interface DraggableProps {
   children: ReactNode
   id: number | string
   index: number
-  type: string
+  type: DragType
   styles: CSSProperties
   disabled?: boolean
 }
@@ -40,21 +41,11 @@ const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, s
 
   // Detect if this draggable contains a DragHandle
   const innerRef = useRef<HTMLDivElement>(null)
-  const hasHandle = useRef(false)
-  useEffect(() => {
-    if (innerRef.current) {
-      hasHandle.current = !!innerRef.current.querySelector('[data-drag-handle]')
-    }
-  })
 
   // Transform is applied directly via DOM in useDragContextEvents
   const draggableInnerStyles: CSSProperties = useMemo(
     () => ({
-      cursor: isDragging
-        ? '-webkit-grabbing'
-        : disableDrag || hasHandle.current
-          ? 'auto'
-          : '-webkit-grab',
+      cursor: isDragging ? '-webkit-grabbing' : disableDrag ? 'auto' : '-webkit-grab',
       zIndex: isDragging ? 2 : 1,
       opacity: isDragging ? 0 : 1,
       pointerEvents: isDragging ? 'none' : 'auto',
@@ -62,6 +53,12 @@ const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, s
     }),
     [disableDrag, isDragging],
   )
+
+  useEffect(() => {
+    if (innerRef.current && innerRef.current.querySelector('[data-drag-handle]')) {
+      innerRef.current.style.cursor = 'auto'
+    }
+  }, [children, disableDrag, isDragging])
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     // Skip touch — touch drag clone is set via long-press in beginDrag

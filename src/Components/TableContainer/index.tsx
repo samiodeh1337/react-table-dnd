@@ -4,17 +4,7 @@ import { Styles } from './styles'
 import { useEffect, useRef, useReducer } from 'react'
 import { TableContext } from './useTable'
 import useDragContextEvents from '../../hooks/useDragContextEvents'
-
-interface Range {
-  start?: number
-  end?: number
-}
-
-interface DragEndResult {
-  sourceIndex: number
-  targetIndex: number
-  dragType: 'row' | 'column'
-}
+import type { TableAction, TableState, DragEndResult, DragRange } from '../../hooks/types'
 
 interface TableProviderProps {
   children: React.ReactNode
@@ -23,8 +13,8 @@ interface TableProviderProps {
   onDragEnd?: (result: DragEndResult) => void
   renderPlaceholder?: () => ReactNode
   options?: {
-    columnDragRange: Range
-    rowDragRange: Range
+    columnDragRange: DragRange
+    rowDragRange: DragRange
   }
 }
 
@@ -34,7 +24,7 @@ const DEFAULT_OPTIONS = {
   defaultSizing: 50,
 }
 
-function tableReducer(state: any, action: any) {
+function tableReducer(state: TableState, action: TableAction): TableState {
   switch (action.type) {
     case 'setClone':
       return { ...state, clone: action.value }
@@ -42,20 +32,16 @@ function tableReducer(state: any, action: any) {
       return { ...state, dragged: { ...state.dragged, ...action.value } }
     case 'setDragType':
       return { ...state, dragType: action.value }
-    case 'setRect':
-      return { ...state, rect: action.value }
     case 'setTableDimensions':
       return { ...state, tableDimensions: action.value }
-    case 'setTableRef':
-      return { ...state, refs: { ...state.refs, tableRef: action.value } }
-    case 'setBodyRef':
-      return { ...state, refs: { ...state.refs, bodyRef: action.value } }
-    case 'setHeaderRef':
-      return { ...state, refs: { ...state.refs, headerRef: action.value } }
-    case 'setCloneRef':
-      return { ...state, refs: { ...state.refs, cloneRef: action.value } }
-    case 'setPlaceholderRef':
-      return { ...state, refs: { ...state.refs, placeholderRef: action.value } }
+    case 'setRef':
+      return {
+        ...state,
+        refs: {
+          ...state.refs,
+          [action.refName]: action.value,
+        },
+      }
     case 'setBodyScrollBarWidth':
       return { ...state, bodyScrollBarWidth: action.value }
     case 'setWidths':
@@ -63,7 +49,13 @@ function tableReducer(state: any, action: any) {
     case 'setColumnIds':
       return { ...state, columnIds: action.value }
     case 'setOptions':
-      return { ...state, options: action.value ?? DEFAULT_OPTIONS }
+      return {
+        ...state,
+        options: {
+          ...state.options,
+          ...action.value,
+        },
+      }
 
     // Batched actions
     case 'dragStart':
@@ -90,7 +82,7 @@ function tableReducer(state: any, action: any) {
       }
 
     default:
-      throw new Error(`Unhandled action type: ${action.type}`)
+      throw new Error('Unhandled action')
   }
 }
 
@@ -107,7 +99,13 @@ const INITIAL_STATE = {
   dragType: null,
   rect: { draggedItemWidth: 0, draggedItemHeight: 0 },
   tableDimensions: { height: 0, width: 0 },
-  refs: { tableRef: null, bodyRef: null, headerRef: null, cloneRef: null, placeholderRef: null },
+  refs: {
+    tableRef: { current: null },
+    bodyRef: { current: null },
+    headerRef: { current: null },
+    cloneRef: { current: null },
+    placeholderRef: { current: null },
+  },
   bodyScrollBarWidth: 0,
   options: DEFAULT_OPTIONS,
   widths: [] as number[],
@@ -141,9 +139,13 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
     const value = useMemo(() => ({ state, dispatch }), [state])
 
     useEffect(() => {
-      dispatch({ type: 'setTableRef', value: localRef })
-      dispatch({ type: 'setCloneRef', value: cloneRef })
-      dispatch({ type: 'setPlaceholderRef', value: placeholderRef })
+      dispatch({ type: 'setRef', refName: 'tableRef', value: localRef })
+      dispatch({ type: 'setRef', refName: 'cloneRef', value: cloneRef })
+      dispatch({
+        type: 'setRef',
+        refName: 'placeholderRef',
+        value: placeholderRef,
+      })
     }, [localRef])
 
     useEffect(() => {
@@ -168,7 +170,9 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
     }, [localRef])
 
     useEffect(() => {
-      dispatch({ type: 'setOptions', value: options })
+      if (options) {
+        dispatch({ type: 'setOptions', value: options })
+      }
     }, [options])
 
     const { dragStart, touchStart } = useDragContextEvents(

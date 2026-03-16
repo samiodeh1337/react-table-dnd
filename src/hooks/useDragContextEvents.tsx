@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, type Dispatch } from 'react'
 import { flushSync } from 'react-dom'
 import useAutoScroll from './useAutoScroll'
 import useLongPress from './useLongPress'
@@ -6,12 +6,13 @@ import { binarySearchDropIndex, binarySearchDropIndexHeader } from '../Component
 import type {
   HookRefs,
   DraggedState,
-  DragAction,
+  DragType,
   Options,
   DragEndResult,
   RowItem,
   ColumnItem,
   Point,
+  TableAction,
 } from './types'
 
 const TRANSITION_STYLE = 'transform 450ms cubic-bezier(0.2, 0, 0, 1)'
@@ -22,8 +23,8 @@ const DROP_ANIM_MS = 200
 const useDragContextEvents = (
   refs: HookRefs,
   dragged: DraggedState,
-  dispatch: (action: DragAction) => void,
-  dragType: string | null,
+  dispatch: Dispatch<TableAction>,
+  dragType: DragType | null,
   options: Options,
   onDragEnd: ((result: DragEndResult) => void) | undefined,
 ) => {
@@ -35,7 +36,7 @@ const useDragContextEvents = (
 
   const cachedItemsRef = useRef<RowItem[] | ColumnItem[] | null>(null)
   const cachedContainerRef = useRef<DOMRect | null>(null)
-  const dragTypeRef = useRef<string | null | undefined>(null)
+  const dragTypeRef = useRef<DragType | null>(null)
   const initialRef = useRef<Point>({ x: 0, y: 0 })
   const sourceIndexRef = useRef<number | null>(null)
   const targetIndexRef = useRef<number | null>(null)
@@ -87,7 +88,7 @@ const useDragContextEvents = (
           width: rect.width,
           itemLeft: rect.left,
           itemRight: rect.left + rect.width,
-          index: (el as HTMLElement).dataset.index,
+          index: (el as HTMLElement).dataset.index!, // <- add the ! here
         }
       })
       .filter((item) => item.index !== undefined)
@@ -109,7 +110,7 @@ const useDragContextEvents = (
       targetEl: HTMLElement | null,
       sourceIdx: number | null,
       targetIdx: number | null,
-      dtype: string | null | undefined,
+      dtype: DragType | null,
     ) => {
       const ph = refs.placeholderRef?.current
       if (!ph || !targetEl) {
@@ -141,7 +142,7 @@ const useDragContextEvents = (
   // ── Shift transforms ───────────────────────────────────
 
   const applyShiftTransforms = useCallback(
-    (sourceIndex: number | null, targetIndex: number | null, dtype: string | null | undefined) => {
+    (sourceIndex: number | null, targetIndex: number | null, dtype: DragType | null) => {
       if (sourceIndex === null || targetIndex === null) return
       const size = draggedSizeRef.current
       let targetEl: HTMLElement | null = null
@@ -267,25 +268,34 @@ const useDragContextEvents = (
 
       const id = draggableEl.dataset.id
       const sourceIndex = +draggableEl.dataset.index!
-      const dtype = draggableEl.dataset.type
+      const dtype = draggableEl.dataset.type as DragType | undefined
       const isTouch = e.type === 'touchstart'
 
-      dragTypeRef.current = dtype
+      dragTypeRef.current = dtype ?? null
       sourceIndexRef.current = sourceIndex
       targetIndexRef.current = null
       dragEndFiredRef.current = false
 
       if (isTouch) {
         draggableEl.dispatchEvent(
-          new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }),
+          new PointerEvent('pointerdown', {
+            bubbles: true,
+            pointerType: 'mouse',
+          }),
         )
       }
 
       const scrollOffset = dtype === 'row' ? (refs.bodyRef?.current?.scrollLeft ?? 0) : 0
       const itemRect = draggableEl.getBoundingClientRect()
-      draggedSizeRef.current = { width: itemRect.width, height: itemRect.height }
+      draggedSizeRef.current = {
+        width: itemRect.width,
+        height: itemRect.height,
+      }
 
-      const initial = { x: clientX - itemRect.left - scrollOffset, y: clientY - itemRect.top }
+      const initial = {
+        x: clientX - itemRect.left - scrollOffset,
+        y: clientY - itemRect.top,
+      }
       initialRef.current = initial
       lastClientRef.current = { x: clientX, y: clientY }
       pointerRef.current = { x: clientX, y: clientY }
@@ -308,18 +318,30 @@ const useDragContextEvents = (
 
       const tableRect = refs.tableRef?.current
       if (tableRect) {
-        ;(dispatch as (a: any) => void)({
+        dispatch({
           type: 'setTableDimensions',
-          value: { height: tableRect.offsetHeight, width: tableRect.offsetWidth },
+          value: {
+            height: tableRect.offsetHeight,
+            width: tableRect.offsetWidth,
+          },
         })
       }
 
       dispatch({
         type: 'dragStart',
         value: {
-          rect: { draggedItemHeight: itemRect.height, draggedItemWidth: itemRect.width },
-          dragged: { initial, translate, draggedID: id, isDragging: true, sourceIndex },
-          dragType: dtype,
+          rect: {
+            draggedItemHeight: itemRect.height,
+            draggedItemWidth: itemRect.width,
+          },
+          dragged: {
+            initial,
+            translate,
+            draggedID: id ?? null,
+            isDragging: true,
+            sourceIndex,
+          },
+          dragType: (dtype as DragType) ?? null,
         },
       })
 
@@ -348,7 +370,7 @@ const useDragContextEvents = (
     (
       finalSource: number | null,
       finalTarget: number | null,
-      finalDragType: string | null | undefined,
+      finalDragType: DragType | null,
       savedScrollTop: number,
       savedScrollLeft: number,
     ) => {
@@ -365,9 +387,16 @@ const useDragContextEvents = (
           finalTarget !== null &&
           (finalDragType === 'row' || finalDragType === 'column')
         ) {
-          onDragEnd({ sourceIndex: finalSource, targetIndex: finalTarget, dragType: finalDragType })
+          onDragEnd({
+            sourceIndex: finalSource,
+            targetIndex: finalTarget,
+            dragType: finalDragType,
+          })
         }
-        dispatch({ type: 'dragEnd', value: { targetIndex: finalTarget, sourceIndex: finalSource } })
+        dispatch({
+          type: 'dragEnd',
+          value: { targetIndex: finalTarget, sourceIndex: finalSource },
+        })
       })
 
       clearShiftTransforms()
@@ -381,7 +410,6 @@ const useDragContextEvents = (
           body.scrollLeft = savedScrollLeft
         })
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [dispatch, refs.bodyRef, refs.cloneRef, refs.tableRef, clearShiftTransforms, onDragEnd],
   )
@@ -553,7 +581,10 @@ const useDragContextEvents = (
     const tableEl = refs.tableRef?.current
     if (tableEl) tableEl.style.touchAction = ''
 
-    dispatch({ type: 'dragEnd', value: { targetIndex: null, sourceIndex: null } })
+    dispatch({
+      type: 'dragEnd',
+      value: { targetIndex: null, sourceIndex: null },
+    })
     stopAutoScroll()
 
     dragTypeRef.current = null

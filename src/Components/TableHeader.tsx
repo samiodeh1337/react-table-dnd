@@ -1,6 +1,12 @@
-/* eslint-disable no-unused-vars */
-// @ts-nocheck
-import React, { useEffect, useLayoutEffect, useMemo, useRef, forwardRef } from 'react'
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  forwardRef,
+  type ReactNode,
+  useCallback,
+} from 'react'
 import { useTable } from './TableContainer/useTable.tsx'
 import useAutoScroll from '../hooks/useAutoScroll.ts'
 import './style.css'
@@ -17,9 +23,20 @@ const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(
     const resolvedRef = ref || localRef
     const { state, dispatch } = useTable()
 
+    const getRefCurrent = useCallback((ref: typeof resolvedRef): HTMLDivElement | null => {
+      if ('current' in ref) return ref.current
+      return null // callback refs don't have .current
+    }, [])
+
     useEffect(() => {
-      dispatch({ type: 'setHeaderRef', value: resolvedRef })
-    }, [dispatch, resolvedRef])
+      if (localRef.current) {
+        dispatch({
+          type: 'setRef',
+          refName: 'headerRef',
+          value: localRef,
+        })
+      }
+    }, [dispatch])
 
     const { HeaderScrollHandle } = useAutoScroll(state.refs)
 
@@ -28,35 +45,37 @@ const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(
       flex: '1 0 auto',
     }
 
-    const theadDefaultStyles = useMemo(
+    const theadDefaultStyles: React.CSSProperties = useMemo(
       () => ({
         overflow: 'hidden',
         display: 'flex',
         paddingRight: `${state.bodyScrollBarWidth}px`,
-        userSelect: state.dragged.isDragging ? 'none' : 'auto',
+        userSelect: state.dragged.isDragging ? ('none' as const) : ('auto' as const),
         ...style,
       }),
       [state.bodyScrollBarWidth, state.dragged.isDragging, style],
     )
 
     useLayoutEffect(() => {
-      if (resolvedRef.current) {
-        const widths = Array.from(resolvedRef.current.querySelectorAll('.th')).map((element) => {
-          const width = element.getAttribute('data-width')
-          return width ? parseInt(width, 10) : null
+      const el = getRefCurrent(resolvedRef)
+      if (el) {
+        const widths: number[] = Array.from(el.querySelectorAll<HTMLElement>('.th')).map((th) => {
+          const w = th.getAttribute('data-width')
+          return w ? parseInt(w, 10) : 0
         })
         dispatch({ type: 'setWidths', value: widths })
       }
-    }, [children, dispatch, resolvedRef])
+    }, [children, dispatch, getRefCurrent, resolvedRef])
 
     useLayoutEffect(() => {
-      if (resolvedRef.current) {
-        const ids = Array.from(resolvedRef.current.querySelectorAll('.draggable')).map((elem) =>
-          elem.getAttribute('data-id'),
+      const el = getRefCurrent(resolvedRef)
+      if (el) {
+        const ids: string[] = Array.from(el.querySelectorAll<HTMLElement>('.draggable')).map(
+          (d) => d.getAttribute('data-id') || '',
         )
         dispatch({ type: 'setColumnIds', value: ids })
       }
-    }, [children, dispatch, resolvedRef])
+    }, [children, dispatch, getRefCurrent, resolvedRef])
 
     return (
       <div className={`header ${className ?? ''}`}>
