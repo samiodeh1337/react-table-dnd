@@ -66,12 +66,17 @@ const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, s
   }, [children, disableDrag, isDragging])
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    // Skip touch — touch drag clone is set via long-press in beginDrag
+    // Skip real touch events — touch drag clone is set via long-press in beginDrag
     if (event.pointerType === 'touch') return
     if (disableDrag) return
 
-    // If this draggable has a DragHandle, only set clone if the click originated from the handle
-    if (hasHandleRef.current) {
+    // Synthetic pointerdown from mobile long-press (pointerType: 'mouse' but isTrusted: false)
+    // Always allow clone creation — the long-press already validated the drag intent
+    const isSyntheticFromTouch = !event.isTrusted
+
+    // If this draggable has a DragHandle and it's a real mouse click,
+    // only set clone if the click originated from the handle
+    if (hasHandleRef.current && !isSyntheticFromTouch) {
       const target = event.target as HTMLElement
       if (!target.closest('[data-drag-handle]')) return
     }
