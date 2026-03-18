@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, type Dispatch } from 'react'
-import { flushSync } from 'react-dom'
 import useAutoScroll from './useAutoScroll'
 import useLongPress from './useLongPress'
 import { binarySearchDropIndex, binarySearchDropIndexHeader } from '../Components/utils'
@@ -14,6 +13,7 @@ import type {
   Point,
   TableAction,
 } from './types'
+import { flushSync } from 'react-dom'
 
 const TRANSITION_STYLE = 'transform 450ms cubic-bezier(0.2, 0, 0, 1)'
 const DROP_ANIM_MS = 200
@@ -40,9 +40,24 @@ const useDragContextEvents = (
   const initialRef = useRef<Point>({ x: 0, y: 0 })
   const sourceIndexRef = useRef<number | null>(null)
   const targetIndexRef = useRef<number | null>(null)
+  const prevTargetIndexRef = useRef<number | null>(null)
   const draggedSizeRef = useRef({ width: 0, height: 0 })
-  const lastClientRef = useRef<Point>({ x: 0, y: 0 })
   const dragEndFiredRef = useRef(false)
+  const cloneBodyElRef = useRef<HTMLElement | null>(null)
+  const mapStaleRef = useRef(false)
+
+  // Track shifted elements for efficient cleanup
+  const shiftedElementsRef = useRef<Set<HTMLElement>>(new Set())
+  const shiftedCellsRef = useRef<Set<HTMLElement>>(new Set())
+  // Track current shift per cell to skip redundant writes
+  const cellShiftCache = useRef<Map<HTMLElement, string>>(new Map())
+
+  // Index maps: built once at drag start, used for O(1) element lookup
+  // Maps data-index → { outer: draggable element, inner: first child }
+  const rowIndexMapRef = useRef<Map<number, { outer: HTMLElement; inner: HTMLElement }>>(new Map())
+  const colIndexMapRef = useRef<Map<number, { outer: HTMLElement; inner: HTMLElement }>>(new Map())
+  // For column drag: maps col-index → array of cell elements (one per row)
+  const cellIndexMapRef = useRef<Map<number, HTMLElement[]>>(new Map())
 
   // ── Compute items ───────────────────────────────────────
 
@@ -88,7 +103,7 @@ const useDragContextEvents = (
           width: rect.width,
           itemLeft: rect.left,
           itemRight: rect.left + rect.width,
-          index: (el as HTMLElement).dataset.index!, // <- add the ! here
+          index: (el as HTMLElement).dataset.index!,
         }
       })
       .filter((item) => item.index !== undefined)
@@ -139,102 +154,116 @@ const useDragContextEvents = (
     [refs.placeholderRef, refs.tableRef],
   )
 
-  // ── Shift transforms ───────────────────────────────────
+  // ── Shift transforms (optimized: index map lookup, no querySelectorAll) ─────────
 
   const applyShiftTransforms = useCallback(
     (sourceIndex: number | null, targetIndex: number | null, dtype: DragType | null) => {
       if (sourceIndex === null || targetIndex === null) return
       const size = draggedSizeRef.current
-      let targetEl: HTMLElement | null = null
+      const prevTarget = prevTargetIndexRef.current
 
-      const shiftElements = (
-        container: HTMLElement | null,
-        selector: string,
-        axis: 'X' | 'Y',
+      const needsFullPass = prevTarget === null
+      const rangeMin = needsFullPass
+        ? -Infinity
+        : Math.min(prevTarget!, targetIndex, sourceIndex) - 1
+      const rangeMax = needsFullPass
+        ? Infinity
+        : Math.max(prevTarget!, targetIndex, sourceIndex) + 1
+
+      let targetEl: HTMLElement | null = null
+      const map = dtype === 'row' ? rowIndexMapRef.current : colIndexMapRef.current
+      const entry = map.get(targetIndex)
+      if (entry) targetEl = entry.outer
+
+      positionPlaceholder(targetEl, sourceIndex, targetIndex, dtype)
+
+      // ── STEP 2: Apply all style writes (no reads after this) ──
+      const applyShift = (
+        idxMap: Map<number, { outer: HTMLElement; inner: HTMLElement }>,
+        axis: 'Y' | 'X',
         amount: number,
       ) => {
-        if (!container) return
-        const els = container.querySelectorAll(selector)
-        for (let i = 0; i < els.length; i++) {
-          const el = els[i] as HTMLElement
-          const idx = +el.dataset.index!
-          const inner = el.firstElementChild as HTMLElement | null
-          if (!inner) continue
-
+        const doEntry = (idx: number, outer: HTMLElement, inner: HTMLElement) => {
           let shift = ''
           if (idx > sourceIndex && idx <= targetIndex) shift = `translate${axis}(-${amount}px)`
           else if (idx < sourceIndex && idx >= targetIndex) shift = `translate${axis}(${amount}px)`
-
           inner.style.transform = shift
           inner.style.transition = idx === sourceIndex ? 'none' : TRANSITION_STYLE
-
-          if (idx === targetIndex) {
-            el.setAttribute('data-drop-target', 'true')
-            targetEl = el
-          } else el.removeAttribute('data-drop-target')
+          if (shift) shiftedElementsRef.current.add(inner)
+          if (idx === targetIndex) outer.setAttribute('data-drop-target', 'true')
+          else outer.removeAttribute('data-drop-target')
         }
-      }
 
-      if (dtype === 'row') {
-        shiftElements(
-          refs.bodyRef?.current ?? null,
-          '.draggable[data-type="row"]',
-          'Y',
-          size.height,
-        )
-      } else if (dtype === 'column') {
-        shiftElements(
-          refs.headerRef?.current ?? null,
-          '.draggable[data-type="column"]',
-          'X',
-          size.width,
-        )
-
-        const body = refs.bodyRef?.current
-        if (body) {
-          const cells = body.querySelectorAll('.td[data-col-index]')
-          for (let i = 0; i < cells.length; i++) {
-            const cell = cells[i] as HTMLElement
-            const idx = +cell.dataset.colIndex!
-            let shift = ''
-            if (idx > sourceIndex && idx <= targetIndex) shift = `translateX(-${size.width}px)`
-            else if (idx < sourceIndex && idx >= targetIndex) shift = `translateX(${size.width}px)`
-            cell.style.transform = shift
-            cell.style.transition = TRANSITION_STYLE
+        if (needsFullPass) {
+          for (const [idx, { outer, inner }] of idxMap) doEntry(idx, outer, inner)
+        } else {
+          for (let idx = rangeMin; idx <= rangeMax; idx++) {
+            const e = idxMap.get(idx)
+            if (e) doEntry(idx, e.outer, e.inner)
           }
         }
       }
 
-      positionPlaceholder(targetEl, sourceIndex, targetIndex, dtype)
+      if (dtype === 'row') {
+        applyShift(rowIndexMapRef.current, 'Y', size.height)
+      } else if (dtype === 'column') {
+        applyShift(colIndexMapRef.current, 'X', size.width)
+
+        // Shift body cells — only write when the shift actually changed
+        const cellMap = cellIndexMapRef.current
+        const cache = cellShiftCache.current
+        const doCells = (idx: number, cells: HTMLElement[], firstPass: boolean) => {
+          let shift = ''
+          if (idx > sourceIndex && idx <= targetIndex) shift = `translateX(-${size.width}px)`
+          else if (idx < sourceIndex && idx >= targetIndex) shift = `translateX(${size.width}px)`
+          for (const cell of cells) {
+            if (cache.get(cell) === shift) continue // skip if unchanged
+            cell.style.transform = shift
+            if (firstPass) cell.style.transition = TRANSITION_STYLE // set once, never again
+            cache.set(cell, shift)
+            if (shift) shiftedCellsRef.current.add(cell)
+          }
+        }
+        if (needsFullPass) {
+          for (const [idx, cells] of cellMap) doCells(idx, cells, true)
+        } else {
+          for (let idx = rangeMin; idx <= rangeMax; idx++) {
+            const cells = cellMap.get(idx)
+            if (cells) doCells(idx, cells, false)
+          }
+        }
+      }
+
+      prevTargetIndexRef.current = targetIndex
     },
-    [refs.bodyRef, refs.headerRef, positionPlaceholder],
+    [positionPlaceholder],
   )
+
+  // ── Clear shift transforms (optimized: only tracked elements) ──
 
   const clearShiftTransforms = useCallback(() => {
     const ph = refs.placeholderRef?.current
     if (ph) ph.style.display = 'none'
 
-    for (const container of [refs.bodyRef?.current, refs.headerRef?.current]) {
-      if (!container) continue
-      const draggables = container.querySelectorAll('.draggable')
-      for (let i = 0; i < draggables.length; i++) {
-        draggables[i].removeAttribute('data-drop-target')
-        const inner = draggables[i].firstElementChild as HTMLElement | null
-        if (inner) {
-          inner.style.transition = 'none'
-          inner.style.transform = ''
-        }
-      }
+    // Clear only elements that were actually shifted
+    for (const inner of shiftedElementsRef.current) {
+      inner.style.transition = 'none'
+      inner.style.transform = ''
+      // Also clear the parent's data-drop-target
+      const parent = inner.parentElement
+      if (parent) parent.removeAttribute('data-drop-target')
     }
-    const body = refs.bodyRef?.current
-    if (body) {
-      const cells = body.querySelectorAll('.td[data-col-index]')
-      for (let i = 0; i < cells.length; i++) {
-        ;(cells[i] as HTMLElement).style.transition = 'none'
-        ;(cells[i] as HTMLElement).style.transform = ''
-      }
+    shiftedElementsRef.current.clear()
+
+    for (const cell of shiftedCellsRef.current) {
+      cell.style.transition = 'none'
+      cell.style.transform = ''
     }
-  }, [refs.bodyRef, refs.headerRef, refs.placeholderRef])
+    shiftedCellsRef.current.clear()
+    cellShiftCache.current.clear()
+
+    prevTargetIndexRef.current = null
+  }, [refs.placeholderRef])
 
   // ── Find draggable from event target ───────────────────
 
@@ -274,6 +303,8 @@ const useDragContextEvents = (
       dragTypeRef.current = dtype ?? null
       sourceIndexRef.current = sourceIndex
       targetIndexRef.current = null
+      cloneBodyElRef.current = null
+      prevTargetIndexRef.current = null
       dragEndFiredRef.current = false
 
       if (isTouch) {
@@ -297,17 +328,62 @@ const useDragContextEvents = (
         y: clientY - itemRect.top,
       }
       initialRef.current = initial
-      lastClientRef.current = { x: clientX, y: clientY }
       pointerRef.current = { x: clientX, y: clientY }
 
       const translate = { x: itemRect.left + scrollOffset, y: itemRect.top }
 
+      // Compute and cache items at drag start
       cachedItemsRef.current = dtype === 'row' ? computeRowItems() : computeColumnItems()
+
+      // Build index maps for O(1) element lookup during shift transforms
+      rowIndexMapRef.current.clear()
+      colIndexMapRef.current.clear()
+      cellIndexMapRef.current.clear()
+
       const body = refs.bodyRef?.current
       if (body) {
         const bodyRect = body.getBoundingClientRect()
         cachedContainerRef.current = bodyRect
         setContainerRect(bodyRect)
+
+        if (dtype === 'row') {
+          // Build row index map
+          const rows = body.querySelectorAll('.draggable[data-type="row"]')
+          for (let i = 0; i < rows.length; i++) {
+            const el = rows[i] as HTMLElement
+            const idx = el.dataset.index
+            if (idx === undefined) continue
+            const inner = el.firstElementChild as HTMLElement | null
+            if (inner) rowIndexMapRef.current.set(+idx, { outer: el, inner })
+          }
+        }
+      }
+
+      if (dtype === 'column') {
+        // Build column index map
+        const header = refs.headerRef?.current
+        if (header) {
+          const cols = header.querySelectorAll('.draggable[data-type="column"]')
+          for (let i = 0; i < cols.length; i++) {
+            const el = cols[i] as HTMLElement
+            const idx = el.dataset.index
+            if (idx === undefined) continue
+            const inner = el.firstElementChild as HTMLElement | null
+            if (inner) colIndexMapRef.current.set(+idx, { outer: el, inner })
+          }
+        }
+        // Build cell index map
+        if (body) {
+          const cells = body.querySelectorAll('.td[data-col-index]')
+          for (let i = 0; i < cells.length; i++) {
+            const cell = cells[i] as HTMLElement
+            const idx = +cell.dataset.colIndex!
+            if (!cellIndexMapRef.current.has(idx)) {
+              cellIndexMapRef.current.set(idx, [])
+            }
+            cellIndexMapRef.current.get(idx)!.push(cell)
+          }
+        }
       }
 
       const tableEl = refs.tableRef?.current
@@ -345,20 +421,17 @@ const useDragContextEvents = (
         },
       })
 
-      const syncScroll = () => {
-        const c = refs.cloneRef?.current
-        const b = refs.bodyRef?.current
-        if (!c || !b) return
-        if (dtype === 'row') c.scrollLeft = b.scrollLeft
-        else {
-          const cb = c.querySelector('.clone-body') as HTMLElement | null
-          if (cb) cb.scrollTop = b.scrollTop
-        }
-      }
-      syncScroll()
+      const bodyScrollLeft = body?.scrollLeft ?? 0
+      const bodyScrollTop = body?.scrollTop ?? 0
       requestAnimationFrame(() => {
-        syncScroll()
-        requestAnimationFrame(syncScroll)
+        const c = refs.cloneRef?.current
+        if (!c) return
+        if (dtype === 'row') {
+          c.scrollLeft = bodyScrollLeft
+        } else {
+          const cb = c.querySelector('.clone-body') as HTMLElement | null
+          if (cb) cb.scrollTop = bodyScrollTop
+        }
       })
     },
     [dispatch, refs, computeRowItems, computeColumnItems, pointerRef, setContainerRect],
@@ -399,8 +472,10 @@ const useDragContextEvents = (
         })
       })
 
+      // Clear transforms
       clearShiftTransforms()
 
+      // Restore scroll position
       const body = refs.bodyRef?.current
       if (body) {
         body.scrollTop = savedScrollTop
@@ -490,80 +565,155 @@ const useDragContextEvents = (
       if (dragEndFiredRef.current) return
 
       const initial = initialRef.current
-
-      lastClientRef.current = { x: clientX, y: clientY }
-      pointerRef.current = { x: clientX, y: clientY }
-
-      const cloneEl = refs.cloneRef?.current
-      if (cloneEl) {
-        cloneEl.style.transform = `translate(${clientX - initial.x}px, ${clientY - initial.y}px)`
-        const body = refs.bodyRef?.current
-        if (body) {
-          if (dragTypeRef.current === 'row') cloneEl.scrollLeft = body.scrollLeft
-          else {
-            const cb = cloneEl.querySelector('.clone-body') as HTMLElement | null
-            if (cb) cb.scrollTop = body.scrollTop
-          }
-        }
-      }
+      pointerRef.current.x = clientX
+      pointerRef.current.y = clientY
 
       const container = refs.bodyRef?.current
       if (!container) return
 
       let rect = cachedContainerRef.current
-      if (!rect) {
+      if (!rect || mapStaleRef.current) {
         rect = container.getBoundingClientRect()
         cachedContainerRef.current = rect
+      }
+
+      const bodyScrollLeft = container.scrollLeft
+      const bodyScrollTop = container.scrollTop
+      let cloneBodyScrollTop = 0
+      const cloneEl = refs.cloneRef?.current
+      if (cloneEl && dragTypeRef.current === 'column') {
+        if (!cloneBodyElRef.current) {
+          cloneBodyElRef.current = cloneEl.querySelector('.clone-body') as HTMLElement | null
+        }
+        if (cloneBodyElRef.current) cloneBodyScrollTop = container.scrollTop
+      }
+
+      if (cloneEl) {
+        cloneEl.style.transform = `translate(${clientX - initial.x}px, ${clientY - initial.y}px)`
+        if (dragTypeRef.current === 'row') cloneEl.scrollLeft = bodyScrollLeft
+        else if (cloneBodyElRef.current) cloneBodyElRef.current.scrollTop = cloneBodyScrollTop
       }
 
       let dropIndex = 0
       const dtype = dragTypeRef.current || dragType
 
+      // Check if cached map elements are still in the DOM (virtual tables swap elements)
+      if (!mapStaleRef.current && rowIndexMapRef.current.size > 0) {
+        const firstEntry = rowIndexMapRef.current.values().next().value
+        if (firstEntry && !firstEntry.outer.isConnected) {
+          mapStaleRef.current = true
+        }
+      }
+      if (!mapStaleRef.current && colIndexMapRef.current.size > 0) {
+        const firstEntry = colIndexMapRef.current.values().next().value
+        if (firstEntry && !firstEntry.outer.isConnected) {
+          mapStaleRef.current = true
+        }
+      }
+
+      // Auto-scroll detection
+
       if (dtype === 'row') {
         if (clientY < rect.top + 30) {
           startAutoScroll(-5, container, 'vertical')
-          cachedItemsRef.current = null
+          mapStaleRef.current = true // Mark map as stale while auto-scrolling
         } else if (clientY > rect.bottom - 30) {
           startAutoScroll(5, container, 'vertical')
-          cachedItemsRef.current = null
-        } else stopAutoScroll()
+          mapStaleRef.current = true
+        } else {
+          stopAutoScroll()
+          // Rebuild map once after auto-scroll made it stale
+          if (mapStaleRef.current) {
+            mapStaleRef.current = false
+            cachedItemsRef.current = null
+            prevTargetIndexRef.current = null
+            targetIndexRef.current = null
+            rowIndexMapRef.current.clear()
+            const rows = container.querySelectorAll('.draggable[data-type="row"]')
+            for (let i = 0; i < rows.length; i++) {
+              const el = rows[i] as HTMLElement
+              const idx = el.dataset.index
+              if (idx === undefined) continue
+              const inner = el.firstElementChild as HTMLElement | null
+              if (inner) rowIndexMapRef.current.set(+idx, { outer: el, inner })
+            }
+          }
+        }
       } else {
         if (clientX < rect.left + 30) {
           startAutoScroll(-5, container, 'horizontal')
-          cachedItemsRef.current = null
+          mapStaleRef.current = true
         } else if (clientX > rect.right - 30) {
           startAutoScroll(5, container, 'horizontal')
-          cachedItemsRef.current = null
-        } else stopAutoScroll()
+          mapStaleRef.current = true
+        } else {
+          stopAutoScroll()
+          if (mapStaleRef.current) {
+            mapStaleRef.current = false
+            cachedItemsRef.current = null
+            prevTargetIndexRef.current = null
+            targetIndexRef.current = null
+            colIndexMapRef.current.clear()
+            cellIndexMapRef.current.clear()
+            const header = refs.headerRef?.current
+            if (header) {
+              const cols = header.querySelectorAll('.draggable[data-type="column"]')
+              for (let i = 0; i < cols.length; i++) {
+                const el = cols[i] as HTMLElement
+                const idx = el.dataset.index
+                if (idx === undefined) continue
+                const inner = el.firstElementChild as HTMLElement | null
+                if (inner) colIndexMapRef.current.set(+idx, { outer: el, inner })
+              }
+            }
+            const cells = container.querySelectorAll('.td[data-col-index]')
+            for (let i = 0; i < cells.length; i++) {
+              const cell = cells[i] as HTMLElement
+              const idx = +cell.dataset.colIndex!
+              if (!cellIndexMapRef.current.has(idx)) {
+                cellIndexMapRef.current.set(idx, [])
+              }
+              cellIndexMapRef.current.get(idx)!.push(cell)
+            }
+          }
+        }
       }
 
+      // Use cached items if available, otherwise recompute
       let items: RowItem[] | ColumnItem[] | null
       if (dtype === 'row') {
-        items = computeRowItems()
-        cachedItemsRef.current = items
-        if (items && items.length > 0)
-          dropIndex = binarySearchDropIndex(clientY - rect.top + container.scrollTop, items)
+        items = cachedItemsRef.current as RowItem[] | null
+        if (!items) {
+          items = computeRowItems()
+          cachedItemsRef.current = items
+        }
+        if (items && items.length > 0) {
+          dropIndex = binarySearchDropIndex(clientY - rect.top + bodyScrollTop, items)
+        }
       } else {
-        items = computeColumnItems()
-        cachedItemsRef.current = items
+        items = cachedItemsRef.current as ColumnItem[] | null
+        if (!items) {
+          items = computeColumnItems()
+          cachedItemsRef.current = items
+        }
         if (items && items.length > 0) dropIndex = binarySearchDropIndexHeader(clientX, items)
       }
-
       if (dropIndex !== targetIndexRef.current) {
         targetIndexRef.current = dropIndex
         requestAnimationFrame(() => applyShiftTransforms(sourceIndexRef.current, dropIndex, dtype))
       }
     },
     [
-      dragType,
+      pointerRef,
       refs.bodyRef,
       refs.cloneRef,
-      computeRowItems,
-      computeColumnItems,
+      refs.headerRef,
+      dragType,
       startAutoScroll,
       stopAutoScroll,
+      computeRowItems,
+      computeColumnItems,
       applyShiftTransforms,
-      pointerRef,
     ],
   )
 
@@ -586,11 +736,19 @@ const useDragContextEvents = (
       value: { targetIndex: null, sourceIndex: null },
     })
     stopAutoScroll()
+    clearShiftTransforms()
 
     dragTypeRef.current = null
     sourceIndexRef.current = null
     targetIndexRef.current = null
-  }, [dispatch, stopAutoScroll, refs.cloneRef, refs.tableRef, cancelLongPress])
+  }, [
+    dispatch,
+    stopAutoScroll,
+    clearShiftTransforms,
+    refs.cloneRef,
+    refs.tableRef,
+    cancelLongPress,
+  ])
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -627,8 +785,21 @@ const useDragContextEvents = (
   useEffect(() => {
     if (!dragged.isDragging) return
 
+    // Throttle pointermove to one dragMove per animation frame.
+    // pointermove can fire 120+ times/sec on high-refresh displays.
+    let pendingX = 0,
+      pendingY = 0,
+      rafPending = false
     const onPointerMove = (e: PointerEvent) => {
-      dragMove(e.clientX, e.clientY)
+      pendingX = e.clientX
+      pendingY = e.clientY
+      if (!rafPending) {
+        rafPending = true
+        requestAnimationFrame(() => {
+          rafPending = false
+          dragMove(pendingX, pendingY)
+        })
+      }
     }
     const onPointerEnd = () => {
       dragEnd()

@@ -81,11 +81,9 @@ const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, s
       if (!target.closest('[data-drag-handle]')) return
     }
 
-    requestAnimationFrame(() => {
-      dispatch({
-        type: 'setClone',
-        value: React.cloneElement(children as ReactElement),
-      })
+    dispatch({
+      type: 'setClone',
+      value: React.cloneElement(children as ReactElement),
     })
   }
 

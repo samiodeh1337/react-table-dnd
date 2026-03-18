@@ -464,15 +464,15 @@ function App() {
 
       {/* Hero */}
       <section className="hero">
-        <div className="badge">v1.1.9 &middot; MIT License</div>
+        <div className="badge">v1.1.12 &middot; MIT License</div>
         <h1>
-          Drag-and-drop sorting
+          The drag-and-drop table
           <br />
-          for React tables
+          React deserves
         </h1>
         <p className="hero-desc">
-          Reorder rows and columns with smooth animations, auto-scroll, virtual scrolling support,
-          and zero external UI dependencies.
+          Reorder rows and columns with 60fps animations, auto-scroll, mobile long-press, virtual
+          scrolling for 100k+ rows, and full style control. Zero UI dependencies.
         </p>
         <div className="hero-actions">
           <a href="#demos" className="btn btn-primary">
@@ -501,32 +501,110 @@ function App() {
       <section className="features">
         {[
           {
-            icon: '⇅',
+            icon: (
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#818cf8"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <path d="M12 3v18M3 8l4-4 4 4M13 20l4-4 4 4" />
+              </svg>
+            ),
             title: 'Row & Column Drag',
             desc: 'Reorder both rows and columns with smooth 60fps animations. Direct DOM transforms — no React re-renders during drag.',
           },
           {
-            icon: '📱',
+            icon: (
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#818cf8"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <rect x="5" y="2" width="14" height="20" rx="3" />
+                <line x1="12" y1="18" x2="12" y2="18.01" />
+              </svg>
+            ),
             title: 'Mobile & Desktop',
             desc: 'Long-press to drag on touch devices, click-drag on desktop. Auto-scroll near edges with smooth acceleration.',
           },
           {
-            icon: '🔄',
+            icon: (
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#818cf8"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <path d="M21 12a9 9 0 11-6.22-8.56" />
+                <path d="M21 3v6h-6" />
+              </svg>
+            ),
             title: 'Virtual Scrolling',
             desc: 'Works with @tanstack/react-virtual to handle 100k+ rows. Drag handles, range constraints, and full TypeScript support.',
           },
           {
-            icon: '🎨',
+            icon: (
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#818cf8"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <circle cx="13.5" cy="6.5" r="2.5" />
+                <path d="M17.5 10.5c3 0 4.5 1 4.5 3.5v2H2v-2c0-2.5 1.5-3.5 4.5-3.5" />
+                <circle cx="6.5" cy="6.5" r="2.5" />
+              </svg>
+            ),
             title: 'Fully Styleable',
             desc: 'className and style on every component. Works with Tailwind, styled-components, CSS modules — zero opinionated styles.',
           },
           {
-            icon: '🔒',
+            icon: (
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#818cf8"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" />
+                <path d="M7 11V7a5 5 0 0110 0v4" />
+              </svg>
+            ),
             title: 'Drag Constraints',
             desc: 'Lock specific rows or columns in place. Set drag ranges to control exactly which items are draggable.',
           },
           {
-            icon: '🔧',
+            icon: (
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#818cf8"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <polyline points="16 18 22 12 16 6" />
+                <polyline points="8 6 2 12 8 18" />
+              </svg>
+            ),
             title: 'TypeScript First',
             desc: 'Full type definitions for all props, callbacks, and options. Autocomplete and type safety out of the box.',
           },
@@ -545,25 +623,37 @@ function App() {
       <section className="section-wide" id="demos">
         <h2>Live Demos</h2>
         <p className="subtitle">Try dragging rows and columns in the tables below.</p>
-        <div className="example-tabs-scroll">
-          <div className="example-tabs">
-            {EXAMPLES.map((ex) => (
-              <button
-                key={ex.id}
-                className={`tab ${activeExample === ex.id ? 'tab-active' : ''}`}
-                onClick={() => {
-                  setActiveExample(ex.id)
+
+        <div className="example-wrapper">
+          <div className="example-header">
+            <div className="example-select-wrap">
+              <select
+                className="example-select"
+                value={activeExample}
+                onChange={(e) => {
+                  setActiveExample(e.target.value)
                   setShowCode(false)
                 }}
               >
-                {ex.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="example-wrapper">
-          <div className="example-toolbar">
+                {EXAMPLES.map((ex) => (
+                  <option key={ex.id} value={ex.id}>
+                    {ex.label}
+                  </option>
+                ))}
+              </select>
+              <svg
+                className="example-select-chevron"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
             <button
               className={`code-toggle-btn ${showCode ? 'code-toggle-active' : ''}`}
               onClick={() => setShowCode((v) => !v)}
