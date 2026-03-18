@@ -1,24 +1,38 @@
+// drag orchestrator — wires autoScroll, longPress, shiftTransforms, indexMaps, dropTarget
+// visual mutations are direct DOM writes (no React state) so drag stays at 60fps
 import { useCallback, useEffect, useLayoutEffect, useRef, type Dispatch } from 'react'
+import { flushSync } from 'react-dom'
 import useAutoScroll from './useAutoScroll'
 import useLongPress from './useLongPress'
-import { binarySearchDropIndex, binarySearchDropIndexHeader } from '../Components/utils'
+import useShiftTransforms from './useShiftTransforms'
+import useIndexMaps from './useIndexMaps'
+import useDropTarget from './useDropTarget'
 import type {
   HookRefs,
   DraggedState,
   DragType,
   Options,
   DragEndResult,
-  RowItem,
-  ColumnItem,
   Point,
   TableAction,
 } from './types'
-import { flushSync } from 'react-dom'
 
-const TRANSITION_STYLE = 'transform 450ms cubic-bezier(0.2, 0, 0, 1)'
 const DROP_ANIM_MS = 200
 
-// ── Hook ────────────────────────────────────────────────
+const findDraggable = (
+  target: EventTarget,
+): { element: HTMLElement; foundHandle: boolean } | null => {
+  let el = target as HTMLElement | null
+  let foundHandle = false
+  while (el) {
+    if (el.dataset?.dragHandle === 'true') foundHandle = true
+    if (el.dataset?.contextid) return null
+    if (el.dataset?.disabled === 'true') return null
+    if (el.dataset?.id) return { element: el, foundHandle }
+    el = el.parentNode as HTMLElement | null
+  }
+  return null
+}
 
 const useDragContextEvents = (
   refs: HookRefs,
@@ -32,257 +46,21 @@ const useDragContextEvents = (
     refs as Parameters<typeof useAutoScroll>[0],
   )
 
-  // ── Refs ────────────────────────────────────────────────
+  const indexMaps = useIndexMaps(refs)
+  const { rowIndexMapRef, colIndexMapRef, cellIndexMapRef, mapStaleRef } = indexMaps
 
-  const cachedItemsRef = useRef<RowItem[] | ColumnItem[] | null>(null)
-  const cachedContainerRef = useRef<DOMRect | null>(null)
+  const shifts = useShiftTransforms(refs, rowIndexMapRef, colIndexMapRef, cellIndexMapRef)
+  const { applyShiftTransforms, clearShiftTransforms, prevTargetIndexRef, draggedSizeRef } = shifts
+
+  const drop = useDropTarget(refs, options)
+  const { resolveDropIndex, cachedItemsRef, cachedContainerRef } = drop
+
   const dragTypeRef = useRef<DragType | null>(null)
   const initialRef = useRef<Point>({ x: 0, y: 0 })
   const sourceIndexRef = useRef<number | null>(null)
   const targetIndexRef = useRef<number | null>(null)
-  const prevTargetIndexRef = useRef<number | null>(null)
-  const draggedSizeRef = useRef({ width: 0, height: 0 })
   const dragEndFiredRef = useRef(false)
   const cloneBodyElRef = useRef<HTMLElement | null>(null)
-  const mapStaleRef = useRef(false)
-
-  // Track shifted elements for efficient cleanup
-  const shiftedElementsRef = useRef<Set<HTMLElement>>(new Set())
-  const shiftedCellsRef = useRef<Set<HTMLElement>>(new Set())
-  // Track current shift per cell to skip redundant writes
-  const cellShiftCache = useRef<Map<HTMLElement, string>>(new Map())
-
-  // Index maps: built once at drag start, used for O(1) element lookup
-  // Maps data-index → { outer: draggable element, inner: first child }
-  const rowIndexMapRef = useRef<Map<number, { outer: HTMLElement; inner: HTMLElement }>>(new Map())
-  const colIndexMapRef = useRef<Map<number, { outer: HTMLElement; inner: HTMLElement }>>(new Map())
-  // For column drag: maps col-index → array of cell elements (one per row)
-  const cellIndexMapRef = useRef<Map<number, HTMLElement[]>>(new Map())
-
-  // ── Compute items ───────────────────────────────────────
-
-  const computeRowItems = useCallback((): RowItem[] | null => {
-    const body = refs.bodyRef?.current
-    if (!body) return null
-    const scrollTop = body.scrollTop
-    const topOffset = body.getBoundingClientRect().top
-
-    const elements = body.querySelectorAll('.draggable[data-type="row"]')
-    let items: RowItem[] = []
-    for (let i = 0; i < elements.length; i++) {
-      const el = elements[i] as HTMLElement
-      if (el.dataset.index === undefined) continue
-      const rect = el.getBoundingClientRect()
-      const itemTop = rect.top - topOffset + scrollTop
-      items.push({
-        height: rect.height,
-        itemTop,
-        itemBottom: itemTop + rect.height,
-        index: el.dataset.index,
-      })
-    }
-
-    const { start, end } = options.rowDragRange
-    if (start || end) {
-      items = items.filter(
-        (item) => (!start || +item.index >= start) && (!end || +item.index < end),
-      )
-    }
-    return items
-  }, [refs.bodyRef, options.rowDragRange])
-
-  const computeColumnItems = useCallback((): ColumnItem[] | null => {
-    const header = refs.headerRef?.current
-    if (!header || !header.children[0]) return null
-
-    let items = Array.from(header.children[0].children)
-      .map((el) => {
-        const rect = el.getBoundingClientRect()
-        return {
-          left: rect.left,
-          width: rect.width,
-          itemLeft: rect.left,
-          itemRight: rect.left + rect.width,
-          index: (el as HTMLElement).dataset.index!,
-        }
-      })
-      .filter((item) => item.index !== undefined)
-
-    const { start, end } = options.columnDragRange ?? {}
-    if (start !== undefined || end !== undefined) {
-      items = items.filter((item) => {
-        const idx = +item.index!
-        return (start === undefined || idx >= start) && (end === undefined || idx < end)
-      })
-    }
-    return items
-  }, [refs.headerRef, options.columnDragRange])
-
-  // ── Placeholder ─────────────────────────────────────────
-
-  const positionPlaceholder = useCallback(
-    (
-      targetEl: HTMLElement | null,
-      sourceIdx: number | null,
-      targetIdx: number | null,
-      dtype: DragType | null,
-    ) => {
-      const ph = refs.placeholderRef?.current
-      if (!ph || !targetEl) {
-        if (ph) ph.style.display = 'none'
-        return
-      }
-
-      const size = draggedSizeRef.current
-      const rect = targetEl.getBoundingClientRect()
-      const tableRect = refs.tableRef?.current?.getBoundingClientRect()
-      const forward = (sourceIdx ?? 0) < (targetIdx ?? 0)
-
-      ph.style.display = 'block'
-      if (dtype === 'row') {
-        ph.style.top = `${forward ? rect.top + rect.height - size.height : rect.top}px`
-        ph.style.left = `${tableRect?.left ?? rect.left}px`
-        ph.style.width = `${tableRect?.width ?? rect.width}px`
-        ph.style.height = `${size.height}px`
-      } else {
-        ph.style.top = `${tableRect?.top ?? rect.top}px`
-        ph.style.left = `${forward ? rect.left + rect.width - size.width : rect.left}px`
-        ph.style.width = `${size.width}px`
-        ph.style.height = `${tableRect?.height ?? rect.height}px`
-      }
-    },
-    [refs.placeholderRef, refs.tableRef],
-  )
-
-  // ── Shift transforms (optimized: index map lookup, no querySelectorAll) ─────────
-
-  const applyShiftTransforms = useCallback(
-    (sourceIndex: number | null, targetIndex: number | null, dtype: DragType | null) => {
-      if (sourceIndex === null || targetIndex === null) return
-      const size = draggedSizeRef.current
-      const prevTarget = prevTargetIndexRef.current
-
-      const needsFullPass = prevTarget === null
-      const rangeMin = needsFullPass
-        ? -Infinity
-        : Math.min(prevTarget!, targetIndex, sourceIndex) - 1
-      const rangeMax = needsFullPass
-        ? Infinity
-        : Math.max(prevTarget!, targetIndex, sourceIndex) + 1
-
-      let targetEl: HTMLElement | null = null
-      const map = dtype === 'row' ? rowIndexMapRef.current : colIndexMapRef.current
-      const entry = map.get(targetIndex)
-      if (entry) targetEl = entry.outer
-
-      positionPlaceholder(targetEl, sourceIndex, targetIndex, dtype)
-
-      // ── STEP 2: Apply all style writes (no reads after this) ──
-      const applyShift = (
-        idxMap: Map<number, { outer: HTMLElement; inner: HTMLElement }>,
-        axis: 'Y' | 'X',
-        amount: number,
-      ) => {
-        const doEntry = (idx: number, outer: HTMLElement, inner: HTMLElement) => {
-          let shift = ''
-          if (idx > sourceIndex && idx <= targetIndex) shift = `translate${axis}(-${amount}px)`
-          else if (idx < sourceIndex && idx >= targetIndex) shift = `translate${axis}(${amount}px)`
-          inner.style.transform = shift
-          inner.style.transition = idx === sourceIndex ? 'none' : TRANSITION_STYLE
-          if (shift) shiftedElementsRef.current.add(inner)
-          if (idx === targetIndex) outer.setAttribute('data-drop-target', 'true')
-          else outer.removeAttribute('data-drop-target')
-        }
-
-        if (needsFullPass) {
-          for (const [idx, { outer, inner }] of idxMap) doEntry(idx, outer, inner)
-        } else {
-          for (let idx = rangeMin; idx <= rangeMax; idx++) {
-            const e = idxMap.get(idx)
-            if (e) doEntry(idx, e.outer, e.inner)
-          }
-        }
-      }
-
-      if (dtype === 'row') {
-        applyShift(rowIndexMapRef.current, 'Y', size.height)
-      } else if (dtype === 'column') {
-        applyShift(colIndexMapRef.current, 'X', size.width)
-
-        // Shift body cells — only write when the shift actually changed
-        const cellMap = cellIndexMapRef.current
-        const cache = cellShiftCache.current
-        const doCells = (idx: number, cells: HTMLElement[], firstPass: boolean) => {
-          let shift = ''
-          if (idx > sourceIndex && idx <= targetIndex) shift = `translateX(-${size.width}px)`
-          else if (idx < sourceIndex && idx >= targetIndex) shift = `translateX(${size.width}px)`
-          for (const cell of cells) {
-            if (cache.get(cell) === shift) continue // skip if unchanged
-            cell.style.transform = shift
-            if (firstPass) cell.style.transition = TRANSITION_STYLE // set once, never again
-            cache.set(cell, shift)
-            if (shift) shiftedCellsRef.current.add(cell)
-          }
-        }
-        if (needsFullPass) {
-          for (const [idx, cells] of cellMap) doCells(idx, cells, true)
-        } else {
-          for (let idx = rangeMin; idx <= rangeMax; idx++) {
-            const cells = cellMap.get(idx)
-            if (cells) doCells(idx, cells, false)
-          }
-        }
-      }
-
-      prevTargetIndexRef.current = targetIndex
-    },
-    [positionPlaceholder],
-  )
-
-  // ── Clear shift transforms (optimized: only tracked elements) ──
-
-  const clearShiftTransforms = useCallback(() => {
-    const ph = refs.placeholderRef?.current
-    if (ph) ph.style.display = 'none'
-
-    // Clear only elements that were actually shifted
-    for (const inner of shiftedElementsRef.current) {
-      inner.style.transition = 'none'
-      inner.style.transform = ''
-      // Also clear the parent's data-drop-target
-      const parent = inner.parentElement
-      if (parent) parent.removeAttribute('data-drop-target')
-    }
-    shiftedElementsRef.current.clear()
-
-    for (const cell of shiftedCellsRef.current) {
-      cell.style.transition = 'none'
-      cell.style.transform = ''
-    }
-    shiftedCellsRef.current.clear()
-    cellShiftCache.current.clear()
-
-    prevTargetIndexRef.current = null
-  }, [refs.placeholderRef])
-
-  // ── Find draggable from event target ───────────────────
-
-  const findDraggable = (
-    target: EventTarget,
-  ): { element: HTMLElement; foundHandle: boolean } | null => {
-    let el = target as HTMLElement | null
-    let foundHandle = false
-    while (el) {
-      if (el.dataset?.dragHandle === 'true') foundHandle = true
-      if (el.dataset?.contextid) return null
-      if (el.dataset?.disabled === 'true') return null
-      if (el.dataset?.id) return { element: el, foundHandle }
-      el = el.parentNode as HTMLElement | null
-    }
-    return null
-  }
-
-  // ── Begin drag (shared by mouse + touch) ──────────────
 
   const beginDrag = useCallback(
     (
@@ -300,6 +78,7 @@ const useDragContextEvents = (
       const dtype = draggableEl.dataset.type as DragType | undefined
       const isTouch = e.type === 'touchstart'
 
+      // Reset refs
       dragTypeRef.current = dtype ?? null
       sourceIndexRef.current = sourceIndex
       targetIndexRef.current = null
@@ -309,19 +88,13 @@ const useDragContextEvents = (
 
       if (isTouch) {
         draggableEl.dispatchEvent(
-          new PointerEvent('pointerdown', {
-            bubbles: true,
-            pointerType: 'mouse',
-          }),
+          new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }),
         )
       }
 
       const scrollOffset = dtype === 'row' ? (refs.bodyRef?.current?.scrollLeft ?? 0) : 0
       const itemRect = draggableEl.getBoundingClientRect()
-      draggedSizeRef.current = {
-        width: itemRect.width,
-        height: itemRect.height,
-      }
+      draggedSizeRef.current = { width: itemRect.width, height: itemRect.height }
 
       const initial = {
         x: clientX - itemRect.left - scrollOffset,
@@ -332,73 +105,28 @@ const useDragContextEvents = (
 
       const translate = { x: itemRect.left + scrollOffset, y: itemRect.top }
 
-      // Compute and cache items at drag start
-      cachedItemsRef.current = dtype === 'row' ? computeRowItems() : computeColumnItems()
-
-      // Build index maps for O(1) element lookup during shift transforms
-      rowIndexMapRef.current.clear()
-      colIndexMapRef.current.clear()
-      cellIndexMapRef.current.clear()
-
+      // Cache items + build index maps
+      cachedItemsRef.current = dtype === 'row' ? drop.computeRowItems() : drop.computeColumnItems()
       const body = refs.bodyRef?.current
       if (body) {
-        const bodyRect = body.getBoundingClientRect()
-        cachedContainerRef.current = bodyRect
-        setContainerRect(bodyRect)
-
-        if (dtype === 'row') {
-          // Build row index map
-          const rows = body.querySelectorAll('.draggable[data-type="row"]')
-          for (let i = 0; i < rows.length; i++) {
-            const el = rows[i] as HTMLElement
-            const idx = el.dataset.index
-            if (idx === undefined) continue
-            const inner = el.firstElementChild as HTMLElement | null
-            if (inner) rowIndexMapRef.current.set(+idx, { outer: el, inner })
-          }
-        }
+        cachedContainerRef.current = body.getBoundingClientRect()
+        setContainerRect(cachedContainerRef.current)
       }
+      indexMaps.buildMaps(dtype, body ?? null)
 
-      if (dtype === 'column') {
-        // Build column index map
-        const header = refs.headerRef?.current
-        if (header) {
-          const cols = header.querySelectorAll('.draggable[data-type="column"]')
-          for (let i = 0; i < cols.length; i++) {
-            const el = cols[i] as HTMLElement
-            const idx = el.dataset.index
-            if (idx === undefined) continue
-            const inner = el.firstElementChild as HTMLElement | null
-            if (inner) colIndexMapRef.current.set(+idx, { outer: el, inner })
-          }
-        }
-        // Build cell index map
-        if (body) {
-          const cells = body.querySelectorAll('.td[data-col-index]')
-          for (let i = 0; i < cells.length; i++) {
-            const cell = cells[i] as HTMLElement
-            const idx = +cell.dataset.colIndex!
-            if (!cellIndexMapRef.current.has(idx)) {
-              cellIndexMapRef.current.set(idx, [])
-            }
-            cellIndexMapRef.current.get(idx)!.push(cell)
-          }
-        }
-      }
-
+      // DOM writes
       const tableEl = refs.tableRef?.current
       if (tableEl) tableEl.style.touchAction = 'none'
 
       const cloneEl = refs.cloneRef?.current
       if (cloneEl) cloneEl.style.transform = `translate(${translate.x}px, ${translate.y}px)`
 
-      const tableRect = refs.tableRef?.current
-      if (tableRect) {
+      if (refs.tableRef?.current) {
         dispatch({
           type: 'setTableDimensions',
           value: {
-            height: tableRect.offsetHeight,
-            width: tableRect.offsetWidth,
+            height: refs.tableRef.current.offsetHeight,
+            width: refs.tableRef.current.offsetWidth,
           },
         })
       }
@@ -406,10 +134,7 @@ const useDragContextEvents = (
       dispatch({
         type: 'dragStart',
         value: {
-          rect: {
-            draggedItemHeight: itemRect.height,
-            draggedItemWidth: itemRect.width,
-          },
+          rect: { draggedItemHeight: itemRect.height, draggedItemWidth: itemRect.width },
           dragged: {
             initial,
             translate,
@@ -421,6 +146,7 @@ const useDragContextEvents = (
         },
       })
 
+      // Sync clone scroll
       const bodyScrollLeft = body?.scrollLeft ?? 0
       const bodyScrollTop = body?.scrollTop ?? 0
       requestAnimationFrame(() => {
@@ -434,10 +160,19 @@ const useDragContextEvents = (
         }
       })
     },
-    [dispatch, refs, computeRowItems, computeColumnItems, pointerRef, setContainerRect],
+    [
+      dispatch,
+      refs,
+      pointerRef,
+      setContainerRect,
+      drop,
+      indexMaps,
+      cachedItemsRef,
+      cachedContainerRef,
+      draggedSizeRef,
+      prevTargetIndexRef,
+    ],
   )
-
-  // ── Finalize drop (called after optional clone animation) ──
 
   const finalizeDrop = useCallback(
     (
@@ -460,22 +195,13 @@ const useDragContextEvents = (
           finalTarget !== null &&
           (finalDragType === 'row' || finalDragType === 'column')
         ) {
-          onDragEnd({
-            sourceIndex: finalSource,
-            targetIndex: finalTarget,
-            dragType: finalDragType,
-          })
+          onDragEnd({ sourceIndex: finalSource, targetIndex: finalTarget, dragType: finalDragType })
         }
-        dispatch({
-          type: 'dragEnd',
-          value: { targetIndex: finalTarget, sourceIndex: finalSource },
-        })
+        dispatch({ type: 'dragEnd', value: { targetIndex: finalTarget, sourceIndex: finalSource } })
       })
 
-      // Clear transforms
       clearShiftTransforms()
 
-      // Restore scroll position
       const body = refs.bodyRef?.current
       if (body) {
         body.scrollTop = savedScrollTop
@@ -488,8 +214,6 @@ const useDragContextEvents = (
     },
     [dispatch, refs.bodyRef, refs.cloneRef, refs.tableRef, clearShiftTransforms, onDragEnd],
   )
-
-  // ── Drag end ──────────────────────────────────────────
 
   const dragEnd = useCallback(() => {
     if (dragEndFiredRef.current) return
@@ -535,10 +259,8 @@ const useDragContextEvents = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stopAutoScroll, refs.bodyRef, refs.placeholderRef, refs.cloneRef, finalizeDrop])
 
-  // ── Stable ref for dragMove ──
+  // stable ref so dragEnd/longPress can always call the latest dragMove
   const dragMoveRef = useRef<(x: number, y: number) => void>(() => {})
-
-  // ── Long press (mobile) ───────────────────────────────
 
   const { touchStart, cancelLongPress, isTouchActiveRef } = useLongPress(
     refs,
@@ -546,8 +268,6 @@ const useDragContextEvents = (
     dragEnd,
     (x: number, y: number) => dragMoveRef.current(x, y),
   )
-
-  // ── Mouse: start drag immediately ─────────────────────
 
   const dragStart = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -557,8 +277,6 @@ const useDragContextEvents = (
     },
     [beginDrag, isTouchActiveRef],
   )
-
-  // ── Core drag move (shared by mouse + touch) ─────────
 
   const dragMove = useCallback(
     (clientX: number, clientY: number) => {
@@ -571,12 +289,14 @@ const useDragContextEvents = (
       const container = refs.bodyRef?.current
       if (!container) return
 
+      // refresh container rect when stale (after auto-scroll)
       let rect = cachedContainerRef.current
       if (!rect || mapStaleRef.current) {
         rect = container.getBoundingClientRect()
         cachedContainerRef.current = rect
       }
 
+      // batch reads before writes
       const bodyScrollLeft = container.scrollLeft
       const bodyScrollTop = container.scrollTop
       let cloneBodyScrollTop = 0
@@ -588,55 +308,32 @@ const useDragContextEvents = (
         if (cloneBodyElRef.current) cloneBodyScrollTop = container.scrollTop
       }
 
+      // DOM writes
       if (cloneEl) {
         cloneEl.style.transform = `translate(${clientX - initial.x}px, ${clientY - initial.y}px)`
         if (dragTypeRef.current === 'row') cloneEl.scrollLeft = bodyScrollLeft
         else if (cloneBodyElRef.current) cloneBodyElRef.current.scrollTop = cloneBodyScrollTop
       }
 
-      let dropIndex = 0
       const dtype = dragTypeRef.current || dragType
 
-      // Check if cached map elements are still in the DOM (virtual tables swap elements)
-      if (!mapStaleRef.current && rowIndexMapRef.current.size > 0) {
-        const firstEntry = rowIndexMapRef.current.values().next().value
-        if (firstEntry && !firstEntry.outer.isConnected) {
-          mapStaleRef.current = true
-        }
-      }
-      if (!mapStaleRef.current && colIndexMapRef.current.size > 0) {
-        const firstEntry = colIndexMapRef.current.values().next().value
-        if (firstEntry && !firstEntry.outer.isConnected) {
-          mapStaleRef.current = true
-        }
-      }
+      indexMaps.checkStaleness()
 
-      // Auto-scroll detection
-
+      // edge-zone auto-scroll; rebuild maps when finger leaves the zone
       if (dtype === 'row') {
         if (clientY < rect.top + 30) {
           startAutoScroll(-5, container, 'vertical')
-          mapStaleRef.current = true // Mark map as stale while auto-scrolling
+          mapStaleRef.current = true
         } else if (clientY > rect.bottom - 30) {
           startAutoScroll(5, container, 'vertical')
           mapStaleRef.current = true
         } else {
           stopAutoScroll()
-          // Rebuild map once after auto-scroll made it stale
           if (mapStaleRef.current) {
-            mapStaleRef.current = false
             cachedItemsRef.current = null
             prevTargetIndexRef.current = null
             targetIndexRef.current = null
-            rowIndexMapRef.current.clear()
-            const rows = container.querySelectorAll('.draggable[data-type="row"]')
-            for (let i = 0; i < rows.length; i++) {
-              const el = rows[i] as HTMLElement
-              const idx = el.dataset.index
-              if (idx === undefined) continue
-              const inner = el.firstElementChild as HTMLElement | null
-              if (inner) rowIndexMapRef.current.set(+idx, { outer: el, inner })
-            }
+            indexMaps.rebuildRowMap(container)
           }
         }
       } else {
@@ -649,55 +346,23 @@ const useDragContextEvents = (
         } else {
           stopAutoScroll()
           if (mapStaleRef.current) {
-            mapStaleRef.current = false
             cachedItemsRef.current = null
             prevTargetIndexRef.current = null
             targetIndexRef.current = null
-            colIndexMapRef.current.clear()
-            cellIndexMapRef.current.clear()
-            const header = refs.headerRef?.current
-            if (header) {
-              const cols = header.querySelectorAll('.draggable[data-type="column"]')
-              for (let i = 0; i < cols.length; i++) {
-                const el = cols[i] as HTMLElement
-                const idx = el.dataset.index
-                if (idx === undefined) continue
-                const inner = el.firstElementChild as HTMLElement | null
-                if (inner) colIndexMapRef.current.set(+idx, { outer: el, inner })
-              }
-            }
-            const cells = container.querySelectorAll('.td[data-col-index]')
-            for (let i = 0; i < cells.length; i++) {
-              const cell = cells[i] as HTMLElement
-              const idx = +cell.dataset.colIndex!
-              if (!cellIndexMapRef.current.has(idx)) {
-                cellIndexMapRef.current.set(idx, [])
-              }
-              cellIndexMapRef.current.get(idx)!.push(cell)
-            }
+            indexMaps.rebuildColumnMaps(container, refs.headerRef?.current ?? null)
           }
         }
       }
 
-      // Use cached items if available, otherwise recompute
-      let items: RowItem[] | ColumnItem[] | null
-      if (dtype === 'row') {
-        items = cachedItemsRef.current as RowItem[] | null
-        if (!items) {
-          items = computeRowItems()
-          cachedItemsRef.current = items
-        }
-        if (items && items.length > 0) {
-          dropIndex = binarySearchDropIndex(clientY - rect.top + bodyScrollTop, items)
-        }
-      } else {
-        items = cachedItemsRef.current as ColumnItem[] | null
-        if (!items) {
-          items = computeColumnItems()
-          cachedItemsRef.current = items
-        }
-        if (items && items.length > 0) dropIndex = binarySearchDropIndexHeader(clientX, items)
-      }
+      const dropIndex = resolveDropIndex(
+        clientX,
+        clientY,
+        dtype,
+        rect,
+        bodyScrollTop,
+        initial,
+        draggedSizeRef.current,
+      )
       if (dropIndex !== targetIndexRef.current) {
         targetIndexRef.current = dropIndex
         requestAnimationFrame(() => applyShiftTransforms(sourceIndexRef.current, dropIndex, dtype))
@@ -711,15 +376,18 @@ const useDragContextEvents = (
       dragType,
       startAutoScroll,
       stopAutoScroll,
-      computeRowItems,
-      computeColumnItems,
+      indexMaps,
+      resolveDropIndex,
       applyShiftTransforms,
+      cachedItemsRef,
+      cachedContainerRef,
+      mapStaleRef,
+      prevTargetIndexRef,
+      draggedSizeRef,
     ],
   )
 
   dragMoveRef.current = dragMove
-
-  // ── Drag cancel (Escape) ──────────────────────────────
 
   const dragCancel = useCallback(() => {
     cancelLongPress()
@@ -731,10 +399,7 @@ const useDragContextEvents = (
     const tableEl = refs.tableRef?.current
     if (tableEl) tableEl.style.touchAction = ''
 
-    dispatch({
-      type: 'dragEnd',
-      value: { targetIndex: null, sourceIndex: null },
-    })
+    dispatch({ type: 'dragEnd', value: { targetIndex: null, sourceIndex: null } })
     stopAutoScroll()
     clearShiftTransforms()
 
@@ -748,6 +413,8 @@ const useDragContextEvents = (
     refs.cloneRef,
     refs.tableRef,
     cancelLongPress,
+    cachedItemsRef,
+    cachedContainerRef,
   ])
 
   const handleKeyDown = useCallback(
@@ -757,7 +424,7 @@ const useDragContextEvents = (
     [dragCancel],
   )
 
-  // ── Reset clone after drag ends ─────────────────────────
+  // reset clone after React re-renders isDragging:false
   useLayoutEffect(() => {
     if (!dragged.isDragging) {
       clearShiftTransforms()
@@ -771,7 +438,7 @@ const useDragContextEvents = (
     }
   }, [dragged.isDragging, clearShiftTransforms, refs.cloneRef])
 
-  // ── touch-action:none on body (permanent) ───────────────
+  // Chrome Android needs touch-action:none set before the first pointerdown, so this is permanent
   useEffect(() => {
     const body = refs.bodyRef?.current
     if (body) body.style.touchAction = 'none'
@@ -780,13 +447,10 @@ const useDragContextEvents = (
     }
   }, [refs.bodyRef])
 
-  // ── Pointer event listeners while dragging ────────────
-
+  // pointermove is rAF-throttled so we don't block the main thread on every event
   useEffect(() => {
     if (!dragged.isDragging) return
 
-    // Throttle pointermove to one dragMove per animation frame.
-    // pointermove can fire 120+ times/sec on high-refresh displays.
     let pendingX = 0,
       pendingY = 0,
       rafPending = false
