@@ -1,8 +1,10 @@
-import React, { useImperativeHandle, useMemo, forwardRef, useLayoutEffect } from 'react'
+import React, { useImperativeHandle, useMemo, forwardRef, useLayoutEffect, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Styles } from './styles'
-import { useEffect, useRef, useReducer } from 'react'
-import { TableContext } from './useTable'
+import { useEffect, useRef } from 'react'
+import { useSyncExternalStore } from 'use-sync-external-store/shim'
+import { StoreContext } from './useTable'
+import { createTableStore } from './store'
 import useDragContextEvents from '../../hooks/useDragContextEvents'
 import type { TableAction, TableState, DragEndResult, DragRange } from '../../hooks/types'
 
@@ -86,7 +88,7 @@ function tableReducer(state: TableState, action: TableAction): TableState {
   }
 }
 
-const INITIAL_STATE = {
+const INITIAL_STATE: TableState = {
   clone: null,
   dragged: {
     initial: { x: 0, y: 0 },
@@ -108,8 +110,8 @@ const INITIAL_STATE = {
   },
   bodyScrollBarWidth: 0,
   options: DEFAULT_OPTIONS,
-  widths: [] as number[],
-  columnIds: [] as string[],
+  widths: [],
+  columnIds: [],
 }
 
 const TABLE_DEFAULT_STYLES: CSSProperties = {
@@ -135,8 +137,9 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
 
     useImperativeHandle(ref, () => localRef.current!, [])
 
-    const [state, dispatch] = useReducer(tableReducer, INITIAL_STATE)
-    const value = useMemo(() => ({ state, dispatch }), [state])
+    const [store] = useState(() => createTableStore(tableReducer, INITIAL_STATE))
+    const state = useSyncExternalStore(store.subscribe, store.getState)
+    const dispatch = store.dispatch
 
     useEffect(() => {
       dispatch({ type: 'setRef', refName: 'tableRef', value: localRef })
@@ -146,7 +149,7 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
         refName: 'placeholderRef',
         value: placeholderRef,
       })
-    }, [localRef])
+    }, [localRef, dispatch])
 
     useEffect(() => {
       const updateTableDimensions = () => {
@@ -167,13 +170,13 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
       return () => {
         window.removeEventListener('resize', updateTableDimensions)
       }
-    }, [localRef])
+    }, [localRef, dispatch])
 
     useEffect(() => {
       if (options) {
         dispatch({ type: 'setOptions', value: options })
       }
-    }, [options])
+    }, [options, dispatch])
 
     const { dragStart, touchStart } = useDragContextEvents(
       state.refs,
@@ -227,7 +230,7 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
     )
 
     return (
-      <TableContext.Provider value={value}>
+      <StoreContext.Provider value={store}>
         <Styles className={state.dragged.isDragging ? 'is-dragging' : ''}>
           <div
             id="portalroot"
@@ -257,7 +260,7 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
             {children}
           </div>
         </Styles>
-      </TableContext.Provider>
+      </StoreContext.Provider>
     )
   },
 )

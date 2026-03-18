@@ -5,7 +5,7 @@ import TableBody from './TableBody'
 import BodyRow from './BodyRow'
 import RowCell from './RowCell'
 import DragHandle from './DragHandle'
-export { useTable } from './TableContainer/useTable'
+export { useTable, useTableStore, useTableDispatch } from './TableContainer/useTable'
 export { TableContainer, TableHeader, ColumnCell, TableBody, BodyRow, RowCell, DragHandle }
 
 // Re-export public types for consumers

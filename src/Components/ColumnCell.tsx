@@ -1,6 +1,6 @@
 import Draggable from './Draggable'
 import type { DraggableProps } from './Draggable'
-import { useTable } from './TableContainer/useTable'
+import { useTableStore } from './TableContainer/useTable'
 import React, { useMemo, memo } from 'react'
 import type { ReactNode } from 'react'
 
@@ -15,12 +15,9 @@ interface ColumnCellProps {
 
 const ColumnCell: React.FC<ColumnCellProps> = memo(
   ({ children, width, style, className, ...props }) => {
-    const { state } = useTable()
+    const defaultSizing = useTableStore((s) => s.options.defaultSizing)
 
-    const colCellWidth = useMemo(
-      () => width ?? state.options.defaultSizing,
-      [width, state.options.defaultSizing],
-    )
+    const colCellWidth = useMemo(() => width ?? defaultSizing, [width, defaultSizing])
 
     const draggableStyles = useMemo(
       () => ({

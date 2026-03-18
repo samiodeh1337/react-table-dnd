@@ -1,5 +1,5 @@
 import React, { useMemo, memo } from 'react'
-import { useTable } from './TableContainer/useTable'
+import { useTableStore } from './TableContainer/useTable'
 
 interface RowCellProps {
   children?: React.ReactNode
@@ -15,17 +15,20 @@ interface RowCellProps {
 const RowCell: React.FC<RowCellProps> = memo(
   ({ children, style, className, isClone, ...props }) => {
     const { index } = props
-    const { state } = useTable()
+    const columnIds = useTableStore((s) => s.columnIds)
+    const widths = useTableStore((s) => s.widths)
+    const defaultSizing = useTableStore((s) => s.options.defaultSizing)
+    const draggedID = useTableStore((s) => s.dragged.draggedID)
 
-    const columnId = useMemo(() => state.columnIds[index] ?? '', [state.columnIds, index])
+    const columnId = useMemo(() => columnIds[index] ?? '', [columnIds, index])
     const rowCellWidth = useMemo(
-      () => state.widths[index] ?? state.options.defaultSizing,
-      [state.widths, index, state.options.defaultSizing],
+      () => widths[index] ?? defaultSizing,
+      [widths, index, defaultSizing],
     )
 
     const isDragging = useMemo(
-      () => (isClone ? false : columnId === state.dragged.draggedID),
-      [isClone, columnId, state.dragged.draggedID],
+      () => (isClone ? false : columnId === draggedID),
+      [isClone, columnId, draggedID],
     )
 
     const styles = useMemo(

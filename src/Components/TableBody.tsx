@@ -11,7 +11,7 @@ import React, {
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { useTable } from './TableContainer/useTable'
+import { useTableStore, useTableDispatch } from './TableContainer/useTable'
 import useAutoScroll from '../hooks/useAutoScroll'
 
 interface TableBodyProps {
@@ -46,10 +46,15 @@ const TableBody = forwardRef<HTMLDivElement, TableBodyProps>(
     const [bodyScrollHeight, setBodyScrollHeight] = useState(0)
     const localRef = useRef<HTMLDivElement>(null)
     useImperativeHandle(ref, () => localRef.current!, [])
-    const { state, dispatch } = useTable()
+
+    const sourceIndex = useTableStore((s) => s.dragged.sourceIndex)
+    const dragType = useTableStore((s) => s.dragType)
+    const isDragging = useTableStore((s) => s.dragged.isDragging)
+    const refs = useTableStore((s) => s.refs)
+    const dispatch = useTableDispatch()
 
     const clone = useMemo(() => {
-      if (state.dragged.sourceIndex === null) return null
+      if (sourceIndex === null) return null
 
       const collectBodyRows = (node: ReactNode): ReactElement<RowProps>[] => {
         const rows: ReactElement<RowProps>[] = []
@@ -75,7 +80,7 @@ const TableBody = forwardRef<HTMLDivElement, TableBodyProps>(
           .filter(
             (cell): cell is ReactElement<CellProps> =>
               React.isValidElement<CellProps>(cell) &&
-              String(cell.props.index) === String(state.dragged.sourceIndex),
+              String(cell.props.index) === String(sourceIndex),
           )
           .map((cell) => React.cloneElement(cell, { key: cell.props.index, isClone: true }))
 
@@ -85,23 +90,23 @@ const TableBody = forwardRef<HTMLDivElement, TableBodyProps>(
           children: filteredCells,
         })
       })
-    }, [children, state.dragged.sourceIndex])
+    }, [children, sourceIndex])
 
     useEffect(() => {
       dispatch({ type: 'setRef', refName: 'bodyRef', value: localRef })
     }, [dispatch, localRef])
 
-    const { BodyScrollHandle } = useAutoScroll(state.refs)
+    const { BodyScrollHandle } = useAutoScroll(refs)
 
     const InnerBodyDefaultStyles = useMemo<CSSProperties>(
       () => ({
         overflowX: 'auto',
         overflowY: 'auto',
         flex: 1,
-        userSelect: state.dragged.isDragging ? 'none' : 'auto',
+        userSelect: isDragging ? 'none' : 'auto',
         ...style,
       }),
-      [state.dragged.isDragging, style],
+      [isDragging, style],
     )
 
     useEffect(() => {
@@ -120,8 +125,8 @@ const TableBody = forwardRef<HTMLDivElement, TableBodyProps>(
     }, [localRef, children])
     return (
       <React.Fragment>
-        {state.dragType === 'column' &&
-          state.refs.cloneRef?.current &&
+        {dragType === 'column' &&
+          refs.cloneRef?.current &&
           createPortal(
             <div
               className="body clone-body"
@@ -132,7 +137,7 @@ const TableBody = forwardRef<HTMLDivElement, TableBodyProps>(
                 {clone && React.Children.toArray(clone)}
               </div>
             </div>,
-            state.refs.cloneRef.current,
+            refs.cloneRef.current,
           )}
         <div className={`body ${className ?? ''}`} style={BODY_STYLES}>
           <div
