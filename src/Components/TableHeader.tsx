@@ -7,8 +7,8 @@ import React, {
   type ReactNode,
   useCallback,
 } from 'react'
-import { useTable } from './TableContainer/useTable.tsx'
-import useAutoScroll from '../hooks/useAutoScroll.ts'
+import { useTableStore, useTableDispatch } from './TableContainer/useTable'
+import useAutoScroll from '../hooks/useAutoScroll'
 import './style.css'
 
 interface TableHeaderProps {
@@ -21,7 +21,11 @@ const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(
   ({ children, style, className }, ref) => {
     const localRef = useRef(null)
     const resolvedRef = ref || localRef
-    const { state, dispatch } = useTable()
+
+    const bodyScrollBarWidth = useTableStore((s) => s.bodyScrollBarWidth)
+    const isDragging = useTableStore((s) => s.dragged.isDragging)
+    const refs = useTableStore((s) => s.refs)
+    const dispatch = useTableDispatch()
 
     const getRefCurrent = useCallback((ref: typeof resolvedRef): HTMLDivElement | null => {
       if ('current' in ref) return ref.current
@@ -38,7 +42,7 @@ const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(
       }
     }, [dispatch])
 
-    const { HeaderScrollHandle } = useAutoScroll(state.refs)
+    const { HeaderScrollHandle } = useAutoScroll(refs)
 
     const defaultStyles = {
       display: 'flex',
@@ -49,11 +53,11 @@ const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(
       () => ({
         overflow: 'hidden',
         display: 'flex',
-        paddingRight: `${state.bodyScrollBarWidth}px`,
-        userSelect: state.dragged.isDragging ? ('none' as const) : ('auto' as const),
+        paddingRight: `${bodyScrollBarWidth}px`,
+        userSelect: isDragging ? ('none' as const) : ('auto' as const),
         ...style,
       }),
-      [state.bodyScrollBarWidth, state.dragged.isDragging, style],
+      [bodyScrollBarWidth, isDragging, style],
     )
 
     useLayoutEffect(() => {

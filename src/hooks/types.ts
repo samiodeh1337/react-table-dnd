@@ -1,4 +1,4 @@
-import type { Dispatch, MutableRefObject, ReactElement, RefObject } from 'react'
+import type { MutableRefObject, ReactElement, RefObject } from 'react'
 
 // --- Drag & Table types ---
 export type DragType = 'row' | 'column'
@@ -112,9 +112,4 @@ export interface ColumnItem {
 export interface Point {
   x: number
   y: number
-}
-
-export interface TableContextType {
-  state: TableState
-  dispatch: Dispatch<TableAction>
 }

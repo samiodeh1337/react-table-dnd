@@ -1,6 +1,6 @@
 import React, { useMemo, memo, useRef, useEffect } from 'react'
 import type { ReactElement, CSSProperties, ReactNode } from 'react'
-import { useTable } from './TableContainer/useTable'
+import { useTableStore, useTableDispatch } from './TableContainer/useTable'
 import { isIndexOutOfRange } from './utils'
 import type { DragType } from '../hooks/types'
 
@@ -14,29 +14,23 @@ export interface DraggableProps {
 }
 
 const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, styles = {} }) => {
-  const { state, dispatch } = useTable()
+  const draggedID = useTableStore((s) => s.dragged.draggedID)
+  const isDraggingState = useTableStore((s) => s.dragged.isDragging)
+  const rowDragRange = useTableStore((s) => s.options.rowDragRange)
+  const columnDragRange = useTableStore((s) => s.options.columnDragRange)
+  const dispatch = useTableDispatch()
+
   const isDragging = useMemo(
-    () => String(id) === String(state.dragged.draggedID) && state.dragged.isDragging,
-    [id, state.dragged.draggedID, state.dragged.isDragging],
+    () => String(id) === String(draggedID) && isDraggingState,
+    [id, draggedID, isDraggingState],
   )
 
   const disableDrag = useMemo(
     () =>
       type === 'row'
-        ? isIndexOutOfRange(index, state.options.rowDragRange.start, state.options.rowDragRange.end)
-        : isIndexOutOfRange(
-            index,
-            state.options.columnDragRange.start,
-            state.options.columnDragRange.end,
-          ),
-    [
-      index,
-      state.options.columnDragRange.end,
-      state.options.columnDragRange.start,
-      state.options.rowDragRange.end,
-      state.options.rowDragRange.start,
-      type,
-    ],
+        ? isIndexOutOfRange(index, rowDragRange.start, rowDragRange.end)
+        : isIndexOutOfRange(index, columnDragRange.start, columnDragRange.end),
+    [index, columnDragRange.end, columnDragRange.start, rowDragRange.end, rowDragRange.start, type],
   )
 
   // Detect if this draggable contains a DragHandle — cached once after mount
