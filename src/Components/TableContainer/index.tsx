@@ -1,4 +1,4 @@
-import React, { useImperativeHandle, useMemo, forwardRef } from 'react'
+import React, { useImperativeHandle, useMemo, forwardRef, useLayoutEffect } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Styles } from './styles'
 import { useEffect, useRef, useReducer } from 'react'
@@ -184,6 +184,16 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
       onDragEnd,
     )
 
+    useLayoutEffect(() => {
+      if (state.clone && state.dragType === 'row') {
+        const cloneEl = cloneRef.current as HTMLElement | null
+        const bodyEl = state.refs.bodyRef?.current as HTMLElement | null
+        if (cloneEl && bodyEl) {
+          cloneEl.scrollLeft = bodyEl.scrollLeft
+        }
+      }
+    }, [state.clone, state.dragType, state.refs.bodyRef])
+
     // transform is set directly via DOM in useDragContextEvents
     const cloneStyles = useMemo<CSSProperties>(
       () => ({
@@ -202,7 +212,8 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
           state.dragType === 'column'
             ? `${state.rect.draggedItemWidth}px`
             : `${state.tableDimensions.width}px`,
-        overflow: 'hidden',
+        overflow: 'scroll',
+        scrollbarWidth: 'none' as const,
         boxShadow: state.dragged.isDragging ? '0 0 10px 0 rgba(0, 0, 0, 0.1)' : 'none',
       }),
       [
