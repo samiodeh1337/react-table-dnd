@@ -64,6 +64,7 @@ function tableReducer(state: TableState, action: TableAction): TableState {
         rect: action.value.rect,
         dragged: { ...state.dragged, ...action.value.dragged },
         dragType: action.value.dragType,
+        tableDimensions: action.value.tableDimensions,
       }
     case 'dragEnd':
       return {

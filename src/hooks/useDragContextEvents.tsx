@@ -197,6 +197,10 @@ const useDragContextEvents = (
           rect: { draggedItemHeight: itemRect.height, draggedItemWidth: itemRect.width },
           dragged: { initial, translate, draggedID: id ?? null, isDragging: true, sourceIndex },
           dragType: (dtype as DragType) ?? null,
+          tableDimensions: {
+            height: refs.tableRef?.current?.offsetHeight ?? 0,
+            width: refs.tableRef?.current?.offsetWidth ?? 0,
+          },
         },
       })
 

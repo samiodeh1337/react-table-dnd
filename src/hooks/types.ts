@@ -84,6 +84,7 @@ export type TableAction =
           sourceIndex: number
         }
         dragType: DragType | null
+        tableDimensions: TableDimensions
       }
     }
   | {
