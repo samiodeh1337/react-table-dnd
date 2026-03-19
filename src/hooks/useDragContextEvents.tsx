@@ -71,6 +71,8 @@ const useDragContextEvents = (
   const targetIndexRef = useRef<number | null>(null)
   const dragEndFiredRef = useRef(false)
   const cloneBodyElRef = useRef<HTMLElement | null>(null)
+  const draggedInnerElRef = useRef<HTMLElement | null>(null)
+  const draggedColCellsRef = useRef<HTMLElement[]>([])
 
   const beginDrag = useCallback(
     (
@@ -92,6 +94,7 @@ const useDragContextEvents = (
       sourceIndexRef.current = sourceIndex
       targetIndexRef.current = null
       cloneBodyElRef.current = null
+      draggedColCellsRef.current = []
       prevTargetIndexRef.current = null
       dragEndFiredRef.current = false
 
@@ -120,6 +123,15 @@ const useDragContextEvents = (
       // DOM writes
       const tableEl = refs.tableRef?.current
       if (tableEl) tableEl.style.touchAction = 'none'
+
+      const draggedInnerEl = draggableEl.firstElementChild as HTMLElement | null
+      if (draggedInnerEl) {
+        draggedInnerEl.style.opacity = '0'
+        draggedInnerEl.style.pointerEvents = 'none'
+        draggedInnerEl.style.zIndex = '2'
+        draggedInnerEl.style.cursor = '-webkit-grabbing'
+      }
+      draggedInnerElRef.current = draggedInnerEl
 
       const cloneEl = refs.cloneRef?.current
       if (cloneEl) {
@@ -169,17 +181,14 @@ const useDragContextEvents = (
           bodyWrapper.appendChild(inner)
           cloneEl.appendChild(bodyWrapper)
           cloneBodyElRef.current = bodyWrapper
-        }
-      }
 
-      if (refs.tableRef?.current) {
-        dispatch({
-          type: 'setTableDimensions',
-          value: {
-            height: refs.tableRef.current.offsetHeight,
-            width: refs.tableRef.current.offsetWidth,
-          },
-        })
+          // Hide body cells AFTER clone is built so cloneNode snapshots them at opacity:1
+          draggedColCellsRef.current = []
+          body.querySelectorAll<HTMLElement>(`[data-col-index="${idx}"]`).forEach((cell) => {
+            cell.style.opacity = '0'
+            draggedColCellsRef.current.push(cell)
+          })
+        }
       }
 
       dispatch({
@@ -188,6 +197,10 @@ const useDragContextEvents = (
           rect: { draggedItemHeight: itemRect.height, draggedItemWidth: itemRect.width },
           dragged: { initial, translate, draggedID: id ?? null, isDragging: true, sourceIndex },
           dragType: (dtype as DragType) ?? null,
+          tableDimensions: {
+            height: refs.tableRef?.current?.offsetHeight ?? 0,
+            width: refs.tableRef?.current?.offsetWidth ?? 0,
+          },
         },
       })
 
@@ -228,6 +241,19 @@ const useDragContextEvents = (
     ) => {
       const cloneEl = refs.cloneRef?.current
       if (cloneEl) cloneEl.style.visibility = 'hidden'
+
+      if (draggedInnerElRef.current) {
+        draggedInnerElRef.current.style.opacity = ''
+        draggedInnerElRef.current.style.pointerEvents = ''
+        draggedInnerElRef.current.style.zIndex = ''
+        draggedInnerElRef.current.style.cursor = ''
+        draggedInnerElRef.current = null
+      }
+
+      draggedColCellsRef.current.forEach((cell) => {
+        cell.style.opacity = ''
+      })
+      draggedColCellsRef.current = []
 
       const tableEl = refs.tableRef?.current
       if (tableEl) tableEl.style.touchAction = ''
