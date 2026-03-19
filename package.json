@@ -13,7 +13,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "sideEffects": false,
+  "sideEffects": [
+    "**/*.css"
+  ],
   "files": [
     "dist"
   ],
@@ -52,10 +54,10 @@
   },
   "dependencies": {
     "classnames": "^2.5.1",
-    "styled-components": "^6.3.11",
     "use-sync-external-store": "^1.6.0"
   },
   "devDependencies": {
+    "styled-components": "^6.3.11",
     "@eslint/js": "^9.39.4",
     "@tanstack/react-virtual": "^3.13.22",
     "@types/node": "^24.12.0",

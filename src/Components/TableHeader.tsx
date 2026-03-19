@@ -9,7 +9,6 @@ import React, {
 } from 'react'
 import { useTableStore, useTableDispatch } from './TableContainer/useTable'
 import useAutoScroll from '../hooks/useAutoScroll'
-import './style.css'
 
 interface TableHeaderProps {
   children: ReactNode
