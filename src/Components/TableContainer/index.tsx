@@ -1,4 +1,4 @@
-import React, { useImperativeHandle, useMemo, forwardRef, useLayoutEffect, useState } from 'react'
+import React, { useImperativeHandle, useMemo, forwardRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Styles } from './styles'
 import { useEffect, useRef } from 'react'
@@ -28,8 +28,6 @@ const DEFAULT_OPTIONS = {
 
 function tableReducer(state: TableState, action: TableAction): TableState {
   switch (action.type) {
-    case 'setClone':
-      return { ...state, clone: action.value }
     case 'setDragged':
       return { ...state, dragged: { ...state.dragged, ...action.value } }
     case 'setDragType':
@@ -70,7 +68,6 @@ function tableReducer(state: TableState, action: TableAction): TableState {
     case 'dragEnd':
       return {
         ...state,
-        clone: null,
         dragged: {
           initial: { x: 0, y: 0 },
           translate: { x: 0, y: 0 },
@@ -89,7 +86,6 @@ function tableReducer(state: TableState, action: TableAction): TableState {
 }
 
 const INITIAL_STATE: TableState = {
-  clone: null,
   dragged: {
     initial: { x: 0, y: 0 },
     translate: { x: 0, y: 0 },
@@ -187,16 +183,6 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
       onDragEnd,
     )
 
-    useLayoutEffect(() => {
-      if (state.clone && state.dragType === 'row') {
-        const cloneEl = cloneRef.current as HTMLElement | null
-        const bodyEl = state.refs.bodyRef?.current as HTMLElement | null
-        if (cloneEl && bodyEl) {
-          cloneEl.scrollLeft = bodyEl.scrollLeft
-        }
-      }
-    }, [state.clone, state.dragType, state.refs.bodyRef])
-
     // transform is set directly via DOM in useDragContextEvents
     const cloneStyles = useMemo<CSSProperties>(
       () => ({
@@ -239,9 +225,7 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
               visibility: state.dragged.isDragging ? 'visible' : 'hidden',
             }}
             ref={cloneRef}
-          >
-            <div style={{ flexShrink: 0, order: -1 }}>{state.clone}</div>
-          </div>
+          />
           <div ref={placeholderRef} style={PLACEHOLDER_STYLES}>
             {renderPlaceholder ? (
               renderPlaceholder()

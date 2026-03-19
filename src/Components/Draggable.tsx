@@ -1,7 +1,7 @@
 import React, { useMemo, memo, useRef, useEffect } from 'react'
-import type { ReactElement, CSSProperties, ReactNode } from 'react'
-import { useTableStore, useTableDispatch } from './TableContainer/useTable'
-import { isIndexOutOfRange, isScrollbarClick } from './utils'
+import type { CSSProperties, ReactNode } from 'react'
+import { useTableStore } from './TableContainer/useTable'
+import { isIndexOutOfRange } from './utils'
 import type { DragType } from '../hooks/types'
 
 export interface DraggableProps {
@@ -18,7 +18,6 @@ const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, s
   const isDraggingState = useTableStore((s) => s.dragged.isDragging)
   const rowDragRange = useTableStore((s) => s.options.rowDragRange)
   const columnDragRange = useTableStore((s) => s.options.columnDragRange)
-  const dispatch = useTableDispatch()
 
   const isDragging = useMemo(
     () => String(id) === String(draggedID) && isDraggingState,
@@ -35,11 +34,6 @@ const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, s
 
   // Detect if this draggable contains a DragHandle — cached once after mount
   const innerRef = useRef<HTMLDivElement>(null)
-  const hasHandleRef = useRef(false)
-
-  useEffect(() => {
-    hasHandleRef.current = !!innerRef.current?.querySelector('[data-drag-handle]')
-  }, [children])
 
   // Transform is applied directly via DOM in useDragContextEvents
   const draggableInnerStyles: CSSProperties = useMemo(
@@ -59,38 +53,12 @@ const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, s
     }
   }, [children, disableDrag, isDragging])
 
-  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    // Skip real touch events — touch drag clone is set via long-press in beginDrag
-    if (event.pointerType === 'touch') return
-    // Only respond to primary (left) mouse button — ignore right-click and middle-click
-    if (event.button !== 0) return
-    if (disableDrag) return
-
-    // Synthetic pointerdown from mobile long-press (pointerType: 'mouse' but isTrusted: false)
-    // Always allow clone creation — the long-press already validated the drag intent
-    const isSyntheticFromTouch = !event.isTrusted
-
-    if (!isSyntheticFromTouch) {
-      const target = event.target as HTMLElement
-      // Ignore clicks on scrollbar tracks/thumbs — must check before cloning
-      if (isScrollbarClick(event.clientX, event.clientY, target)) return
-      // If this draggable has a DragHandle, only set clone if the click originated from the handle
-      if (hasHandleRef.current && !target.closest('[data-drag-handle]')) return
-    }
-
-    dispatch({
-      type: 'setClone',
-      value: React.cloneElement(children as ReactElement),
-    })
-  }
-
   return (
     <div
       className="draggable"
       data-id={id}
       data-index={index}
       data-type={type}
-      onPointerDown={onPointerDown}
       data-disabled={disableDrag ? 'true' : 'false'}
       style={styles}
     >
