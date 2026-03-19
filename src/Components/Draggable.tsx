@@ -62,6 +62,8 @@ const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, s
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     // Skip real touch events — touch drag clone is set via long-press in beginDrag
     if (event.pointerType === 'touch') return
+    // Only respond to primary (left) mouse button — ignore right-click and middle-click
+    if (event.button !== 0) return
     if (disableDrag) return
 
     // Synthetic pointerdown from mobile long-press (pointerType: 'mouse' but isTrusted: false)

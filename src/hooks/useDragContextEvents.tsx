@@ -1,5 +1,14 @@
-// drag orchestrator — wires autoScroll, longPress, shiftTransforms, indexMaps, dropTarget
-// visual mutations are direct DOM writes (no React state) so drag stays at 60fps
+/**
+ * useDragContextEvents — the drag orchestrator.
+ *
+ * Responsibilities:
+ *  - Detect drag start (mouse + touch via long-press)
+ *  - Move the clone element via direct DOM transforms (no React re-renders during drag)
+ *  - Drive edge-zone auto-scroll
+ *  - Resolve the drop target index and apply shift animations
+ *  - Finalize the drop with a snap animation, then call onDragEnd
+ *  - Cancel on Escape key
+ */
 import { useCallback, useEffect, useLayoutEffect, useRef, type Dispatch } from 'react'
 import { flushSync } from 'react-dom'
 import useAutoScroll from './useAutoScroll'
@@ -17,11 +26,11 @@ import type {
   TableAction,
 } from './types'
 
-const DROP_ANIM_MS = 200
+const DROP_SNAP_MS = 200
+const EDGE_SCROLL_ZONE = 30
+const EDGE_SCROLL_SPEED = 5
 
-const findDraggable = (
-  target: EventTarget,
-): { element: HTMLElement; foundHandle: boolean } | null => {
+function findDraggable(target: EventTarget): { element: HTMLElement; foundHandle: boolean } | null {
   let el = target as HTMLElement | null
   let foundHandle = false
   while (el) {
@@ -32,6 +41,11 @@ const findDraggable = (
     el = el.parentNode as HTMLElement | null
   }
   return null
+}
+
+function isScrollbarClick(e: React.MouseEvent, target: HTMLElement): boolean {
+  const rect = target.getBoundingClientRect()
+  return e.clientY > rect.top + target.clientHeight || e.clientX > rect.left + target.clientWidth
 }
 
 const useDragContextEvents = (
@@ -96,14 +110,14 @@ const useDragContextEvents = (
       const itemRect = draggableEl.getBoundingClientRect()
       draggedSizeRef.current = { width: itemRect.width, height: itemRect.height }
 
-      const initial = {
+      const initial: Point = {
         x: clientX - itemRect.left - scrollOffset,
         y: clientY - itemRect.top,
       }
       initialRef.current = initial
       pointerRef.current = { x: clientX, y: clientY }
 
-      const translate = { x: itemRect.left + scrollOffset, y: itemRect.top }
+      const translate: Point = { x: itemRect.left + scrollOffset, y: itemRect.top }
 
       // Cache items + build index maps
       cachedItemsRef.current = dtype === 'row' ? drop.computeRowItems() : drop.computeColumnItems()
@@ -135,13 +149,7 @@ const useDragContextEvents = (
         type: 'dragStart',
         value: {
           rect: { draggedItemHeight: itemRect.height, draggedItemWidth: itemRect.width },
-          dragged: {
-            initial,
-            translate,
-            draggedID: id ?? null,
-            isDragging: true,
-            sourceIndex,
-          },
+          dragged: { initial, translate, draggedID: id ?? null, isDragging: true, sourceIndex },
           dragType: (dtype as DragType) ?? null,
         },
       })
@@ -246,12 +254,12 @@ const useDragContextEvents = (
     if (cloneEl && ph && ph.style.display !== 'none') {
       const toX = parseFloat(ph.style.left) || 0
       const toY = parseFloat(ph.style.top) || 0
-      cloneEl.style.transition = `transform ${DROP_ANIM_MS}ms cubic-bezier(0.2, 0, 0, 1)`
+      cloneEl.style.transition = `transform ${DROP_SNAP_MS}ms cubic-bezier(0.2, 0, 0, 1)`
       cloneEl.style.transform = `translate(${toX}px, ${toY}px)`
       setTimeout(
         () =>
           finalizeDrop(finalSource, finalTarget, finalDragType, savedScrollTop, savedScrollLeft),
-        DROP_ANIM_MS,
+        DROP_SNAP_MS,
       )
     } else {
       finalizeDrop(finalSource, finalTarget, finalDragType, savedScrollTop, savedScrollLeft)
@@ -271,8 +279,11 @@ const useDragContextEvents = (
 
   const dragStart = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.target === e.currentTarget) return
-      if (isTouchActiveRef.current) return
+      if (e.button !== 0) return // ignore right-click / middle-click
+      if (e.target === e.currentTarget) return // click on container itself (not a child)
+      if (isTouchActiveRef.current) return // touch gesture in progress
+      if (isScrollbarClick(e, e.target as HTMLElement)) return // click on scrollbar track/thumb
+
       beginDrag(e, e.clientX, e.clientY)
     },
     [beginDrag, isTouchActiveRef],
@@ -299,20 +310,21 @@ const useDragContextEvents = (
       // batch reads before writes
       const bodyScrollLeft = container.scrollLeft
       const bodyScrollTop = container.scrollTop
-      let cloneBodyScrollTop = 0
       const cloneEl = refs.cloneRef?.current
-      if (cloneEl && dragTypeRef.current === 'column') {
-        if (!cloneBodyElRef.current) {
-          cloneBodyElRef.current = cloneEl.querySelector('.clone-body') as HTMLElement | null
-        }
-        if (cloneBodyElRef.current) cloneBodyScrollTop = container.scrollTop
+
+      // Cache .clone-body reference for column drags (querySelector is expensive)
+      if (cloneEl && dragTypeRef.current === 'column' && !cloneBodyElRef.current) {
+        cloneBodyElRef.current = cloneEl.querySelector('.clone-body') as HTMLElement | null
       }
 
       // DOM writes
       if (cloneEl) {
         cloneEl.style.transform = `translate(${clientX - initial.x}px, ${clientY - initial.y}px)`
-        if (dragTypeRef.current === 'row') cloneEl.scrollLeft = bodyScrollLeft
-        else if (cloneBodyElRef.current) cloneBodyElRef.current.scrollTop = cloneBodyScrollTop
+        if (dragTypeRef.current === 'row') {
+          cloneEl.scrollLeft = bodyScrollLeft
+        } else if (cloneBodyElRef.current) {
+          cloneBodyElRef.current.scrollTop = bodyScrollTop
+        }
       }
 
       const dtype = dragTypeRef.current || dragType
@@ -321,11 +333,11 @@ const useDragContextEvents = (
 
       // edge-zone auto-scroll; rebuild maps when finger leaves the zone
       if (dtype === 'row') {
-        if (clientY < rect.top + 30) {
-          startAutoScroll(-5, container, 'vertical')
+        if (clientY < rect.top + EDGE_SCROLL_ZONE) {
+          startAutoScroll(-EDGE_SCROLL_SPEED, container, 'vertical')
           mapStaleRef.current = true
-        } else if (clientY > rect.bottom - 30) {
-          startAutoScroll(5, container, 'vertical')
+        } else if (clientY > rect.bottom - EDGE_SCROLL_ZONE) {
+          startAutoScroll(EDGE_SCROLL_SPEED, container, 'vertical')
           mapStaleRef.current = true
         } else {
           stopAutoScroll()
@@ -337,11 +349,11 @@ const useDragContextEvents = (
           }
         }
       } else {
-        if (clientX < rect.left + 30) {
-          startAutoScroll(-5, container, 'horizontal')
+        if (clientX < rect.left + EDGE_SCROLL_ZONE) {
+          startAutoScroll(-EDGE_SCROLL_SPEED, container, 'horizontal')
           mapStaleRef.current = true
-        } else if (clientX > rect.right - 30) {
-          startAutoScroll(5, container, 'horizontal')
+        } else if (clientX > rect.right - EDGE_SCROLL_ZONE) {
+          startAutoScroll(EDGE_SCROLL_SPEED, container, 'horizontal')
           mapStaleRef.current = true
         } else {
           stopAutoScroll()
@@ -407,22 +419,15 @@ const useDragContextEvents = (
     sourceIndexRef.current = null
     targetIndexRef.current = null
   }, [
-    dispatch,
-    stopAutoScroll,
-    clearShiftTransforms,
-    refs.cloneRef,
-    refs.tableRef,
     cancelLongPress,
     cachedItemsRef,
     cachedContainerRef,
+    refs.cloneRef,
+    refs.tableRef,
+    dispatch,
+    stopAutoScroll,
+    clearShiftTransforms,
   ])
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape') dragCancel()
-    },
-    [dragCancel],
-  )
 
   // reset clone after React re-renders isDragging:false
   useLayoutEffect(() => {
@@ -439,21 +444,22 @@ const useDragContextEvents = (
   }, [dragged.isDragging, clearShiftTransforms, refs.cloneRef])
 
   // Chrome Android needs touch-action:none set before the first pointerdown, so this is permanent
-  useEffect(() => {
-    const body = refs.bodyRef?.current
-    if (body) body.style.touchAction = 'none'
-    return () => {
-      if (body) body.style.touchAction = ''
-    }
-  }, [refs.bodyRef])
+  // useEffect(() => {
+  //   const body = refs.bodyRef?.current
+  //   if (body) body.style.touchAction = 'none'
+  //   return () => {
+  //     if (body) body.style.touchAction = ''
+  //   }
+  // }, [refs.bodyRef])
 
   // pointermove is rAF-throttled so we don't block the main thread on every event
   useEffect(() => {
     if (!dragged.isDragging) return
 
-    let pendingX = 0,
-      pendingY = 0,
-      rafPending = false
+    let pendingX = 0
+    let pendingY = 0
+    let rafPending = false
+
     const onPointerMove = (e: PointerEvent) => {
       pendingX = e.clientX
       pendingY = e.clientY
@@ -465,22 +471,24 @@ const useDragContextEvents = (
         })
       }
     }
-    const onPointerEnd = () => {
-      dragEnd()
+
+    const onPointerEnd = () => dragEnd()
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') dragCancel()
     }
 
     window.addEventListener('pointermove', onPointerMove)
     window.addEventListener('pointerup', onPointerEnd)
     window.addEventListener('pointercancel', onPointerEnd)
-    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keydown', onKeyDown)
 
     return () => {
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerEnd)
       window.removeEventListener('pointercancel', onPointerEnd)
-      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keydown', onKeyDown)
     }
-  }, [dragged.isDragging, dragMove, dragEnd, handleKeyDown])
+  }, [dragged.isDragging, dragMove, dragEnd, dragCancel])
 
   return { dragStart, touchStart }
 }
