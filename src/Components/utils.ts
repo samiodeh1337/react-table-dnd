@@ -46,6 +46,11 @@ export const binarySearchDropIndexHeader = (mouseX: number, items: ColumnItem[])
   return +items[low].index
 }
 
+export function isScrollbarClick(clientX: number, clientY: number, target: HTMLElement): boolean {
+  const rect = target.getBoundingClientRect()
+  return clientX > rect.left + target.clientWidth || clientY > rect.top + target.clientHeight
+}
+
 export const isIndexOutOfRange = (
   index: string | number,
   start?: number,

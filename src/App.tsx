@@ -12,6 +12,7 @@ import StylingExample from './examples/example-styling'
 import DragHandleExample from './examples/example-handle'
 import StyledCompExample from './examples/example-styledcomp'
 import TailwindExample from './examples/example-tailwind'
+import ScrollCellExample from './examples/example-scrollcell'
 import {
   TableContainer as _TC,
   TableHeader as _TH,
@@ -32,6 +33,8 @@ import srcStylingTsx from './examples/example-styling.tsx?raw'
 import srcHandleTsx from './examples/example-handle.tsx?raw'
 import srcStyledCompTsx from './examples/example-styledcomp.tsx?raw'
 import srcTailwindTsx from './examples/example-tailwind.tsx?raw'
+import srcScrollCellTsx from './examples/tsx/example-scrollcell.tsx?raw'
+import srcScrollCellJsx from './examples/jsx/example-scrollcell.jsx?raw'
 import srcDataTsx from './examples/example-data.ts?raw'
 
 // Raw source imports for code preview (JSX — standalone copies)
@@ -123,6 +126,13 @@ const EXAMPLES = [
     component: TailwindExample,
     tsx: prepareTsx(srcTailwindTsx),
     jsx: srcTailwindJsx,
+  },
+  {
+    id: 'scrollcell',
+    label: 'Scrollable Cells',
+    component: ScrollCellExample,
+    tsx: srcScrollCellTsx,
+    jsx: srcScrollCellJsx,
   },
 ] as const
 

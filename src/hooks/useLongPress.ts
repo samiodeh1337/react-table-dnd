@@ -3,16 +3,15 @@ import type { HookRefs } from './types'
 
 const LONG_PRESS_DELAY = 300
 const LONG_PRESS_MOVE_THRESHOLD = 8
+const FRICTION = 0.92 // velocity multiplier per frame (1 = no friction, 0 = instant stop)
+const MIN_VELOCITY = 0.5 // px/frame below which momentum stops
 
 /**
  * Mobile long-press-to-drag.
+ * this hook implements JS-based scrolling with momentum/inertia when
+ * the long press is cancelled (user is scrolling, not dragging).
  *
- * touch-action:none is set permanently on the body element (by
- * useDragContextEvents on mount) so Chrome Android respects it at
- * pointerdown time. Since native scrolling is disabled on the body,
- * this hook implements JS-based scrolling when the long press is cancelled.
- *
- * preventDefault() is still called on touchmove to stop any residual
+ * preventDefault() is called on touchmove to stop any residual
  * browser behavior during the 300ms detection window.
  */
 export default function useLongPress(
@@ -26,6 +25,14 @@ export default function useLongPress(
   const pendingTouchEventRef = useRef<React.TouchEvent<HTMLDivElement> | null>(null)
   const isTouchActiveRef = useRef(false)
   const cleanupRef = useRef<(() => void) | null>(null)
+  const momentumRafRef = useRef<number | null>(null)
+
+  const stopMomentum = useCallback(() => {
+    if (momentumRafRef.current !== null) {
+      cancelAnimationFrame(momentumRafRef.current)
+      momentumRafRef.current = null
+    }
+  }, [])
 
   const cancelLongPress = useCallback(() => {
     if (longPressTimerRef.current) {
@@ -57,6 +64,9 @@ export default function useLongPress(
       }
       if (!isDraggable) return
 
+      // Stop any ongoing momentum scroll from a previous gesture
+      stopMomentum()
+
       cancelLongPress()
       isTouchActiveRef.current = true
 
@@ -74,23 +84,80 @@ export default function useLongPress(
       let scrollPhase = false
       let lastScrollY = touch.clientY
       let lastScrollX = touch.clientX
+      // Velocity tracking for momentum scroll
+      let velY = 0
+      let velX = 0
+      let lastTime = Date.now()
 
       // Block text selection during long-press detection + drag
       const onSelectStart = (ev: Event) => ev.preventDefault()
       document.addEventListener('selectstart', onSelectStart)
 
+      // Walk up from the touch target to find the first scrollable ancestor.
+      const findScrollTarget = (startEl: HTMLElement): HTMLElement => {
+        const body = refs.bodyRef?.current
+        let el: HTMLElement | null = startEl
+        while (el && el !== body) {
+          const style = window.getComputedStyle(el)
+          const oy = style.overflowY
+          const ox = style.overflowX
+          const canScrollY = (oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight
+          const canScrollX = (ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth
+          if (canScrollY || canScrollX) return el
+          el = el.parentElement
+        }
+        return body ?? (document.body as HTMLElement)
+      }
+
+      // Determine scroll target once at gesture start from the touch target element
+      const scrollTarget: HTMLElement = findScrollTarget(e.target as HTMLElement)
+
       const onMove = (ev: TouchEvent) => {
         ev.preventDefault()
         const t = ev.touches[0]
+        const now = Date.now()
+        const dt = Math.max(now - lastTime, 1)
+        lastTime = now
 
         if (scrollPhase) {
-          // JS scrolling — replaces native scroll since touch-action:none
-          // is set permanently on the body element
-          const body = refs.bodyRef?.current
-          if (body) {
-            body.scrollTop -= t.clientY - lastScrollY
-            body.scrollLeft -= t.clientX - lastScrollX
+          const dy = t.clientY - lastScrollY
+          const dx = t.clientX - lastScrollX
+
+          if (scrollTarget) {
+            const body = refs.bodyRef?.current
+
+            // Check if scrollTarget has reached its scroll boundary
+            const atTopEdge = dy > 0 && scrollTarget.scrollTop <= 0
+            const atBottomEdge =
+              dy < 0 &&
+              scrollTarget.scrollTop + scrollTarget.clientHeight >= scrollTarget.scrollHeight - 1
+            const atLeftEdge = dx > 0 && scrollTarget.scrollLeft <= 0
+            const atRightEdge =
+              dx < 0 &&
+              scrollTarget.scrollLeft + scrollTarget.clientWidth >= scrollTarget.scrollWidth - 1
+
+            const overflowY = atTopEdge || atBottomEdge
+            const overflowX = atLeftEdge || atRightEdge
+
+            if (scrollTarget !== body) {
+              // Scroll the cell for the non-overflow axis
+              if (!overflowX) scrollTarget.scrollLeft -= dx
+              if (!overflowY) scrollTarget.scrollTop -= dy
+
+              // Overflow to body for the axis that hit the boundary
+              if (body) {
+                if (overflowY) body.scrollTop -= dy
+                if (overflowX) body.scrollLeft -= dx
+              }
+            } else {
+              scrollTarget.scrollTop -= dy
+              scrollTarget.scrollLeft -= dx
+            }
           }
+
+          // Track velocity (px/ms → px/frame at 60fps ≈ 16ms)
+          velY = (-dy / dt) * 16
+          velX = (-dx / dt) * 16
           lastScrollY = t.clientY
           lastScrollX = t.clientX
         } else if (!dragPhase) {
@@ -109,6 +176,9 @@ export default function useLongPress(
             scrollPhase = true
             lastScrollY = t.clientY
             lastScrollX = t.clientX
+            velY = 0
+            velX = 0
+            lastTime = Date.now()
           }
         } else {
           onDragMove(t.clientX, t.clientY)
@@ -121,6 +191,28 @@ export default function useLongPress(
           dragEnd()
         } else {
           cancelLongPress()
+
+          // Launch momentum scroll if we were in scroll phase
+          if (
+            scrollPhase &&
+            scrollTarget &&
+            (Math.abs(velY) > MIN_VELOCITY || Math.abs(velX) > MIN_VELOCITY)
+          ) {
+            const target = scrollTarget
+            const runMomentum = () => {
+              velY *= FRICTION
+              velX *= FRICTION
+              target.scrollTop += velY
+              target.scrollLeft += velX
+              if (Math.abs(velY) > MIN_VELOCITY || Math.abs(velX) > MIN_VELOCITY) {
+                momentumRafRef.current = requestAnimationFrame(runMomentum)
+              } else {
+                momentumRafRef.current = null
+              }
+            }
+            momentumRafRef.current = requestAnimationFrame(runMomentum)
+          }
+
           setTimeout(() => {
             isTouchActiveRef.current = false
           }, 400)
@@ -157,6 +249,7 @@ export default function useLongPress(
       dragEnd,
       onDragMove,
       cancelLongPress,
+      stopMomentum,
       refs.tableRef?.current,
       refs.bodyRef?.current,
     ],

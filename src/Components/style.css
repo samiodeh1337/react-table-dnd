@@ -1,0 +1,11 @@
+/* Draggable rows and columns: disable browser touch gestures so long-press drag works on mobile.
+   Scoped to [data-id] elements only — scrollbar, body, and cell content are unaffected.
+   When a DragHandle is present, only the handle needs touch-action:none — the rest of the row
+   can use touch-action:auto so cell content (inputs, scrollable divs) works normally. */
+[data-id]:not(:has([data-drag-handle])) {
+  touch-action: none;
+}
+
+[data-drag-handle] {
+  touch-action: none;
+}
