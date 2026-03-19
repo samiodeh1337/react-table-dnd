@@ -1,6 +1,5 @@
 import Draggable from './Draggable'
 import classNames from 'classnames'
-import './style.css'
 import React, { useMemo, memo } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import type { DraggableProps } from './Draggable'

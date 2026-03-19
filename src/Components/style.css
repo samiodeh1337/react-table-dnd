@@ -1,11 +1,55 @@
-/* Draggable rows and columns: disable browser touch gestures so long-press drag works on mobile.
-   Scoped to [data-id] elements only — scrollbar, body, and cell content are unaffected.
-   When a DragHandle is present, only the handle needs touch-action:none — the rest of the row
-   can use touch-action:auto so cell content (inputs, scrollable divs) works normally. */
-[data-id]:not(:has([data-drag-handle])) {
+/* touch-action: scoped to library root — only draggable elements are affected,
+   scrollable cell content and other touch interactions remain unblocked */
+[data-flexitable-root] [data-id]:not(:has([data-drag-handle])) {
   touch-action: none;
 }
 
-[data-drag-handle] {
+[data-flexitable-root] [data-drag-handle] {
   touch-action: none;
+}
+
+/* structural reset: targets only the library's own elements,
+   never bleeds into consumer cell content */
+[data-flexitable-root],
+[data-flexitable-root] .table,
+[data-flexitable-root] .header,
+[data-flexitable-root] .thead,
+[data-flexitable-root] .body,
+[data-flexitable-root] .ibody,
+[data-flexitable-root] .draggable,
+[data-flexitable-root] .tr {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+[data-flexitable-root] {
+  height: 100%;
+}
+
+/* user-facing cells: box-sizing only — padding/margin intentionally left
+   unset so consumers can style freely via className and style props */
+[data-flexitable-root] .th,
+[data-flexitable-root] .td {
+  box-sizing: border-box;
+}
+
+/* dragging state: lock cursor and disable text selection across the whole table */
+[data-flexitable-root].is-dragging,
+[data-flexitable-root].is-dragging * {
+  cursor: -webkit-grabbing !important;
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* drag handle: only the handle shows grab cursor when not actively dragging */
+[data-flexitable-root]:not(.is-dragging) .draggable:has([data-drag-handle]) > div {
+  cursor: default !important;
+}
+
+[data-flexitable-root]:not(.is-dragging) [data-drag-handle] {
+  cursor: -webkit-grab;
+  cursor: grab;
 }
