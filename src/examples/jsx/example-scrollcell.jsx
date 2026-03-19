@@ -33,135 +33,165 @@ const ROWS = [
     id: '1',
     name: 'Alice Johnson',
     role: 'Engineer',
-    notes: 'Working on the new authentication module. Needs review from security team before merging. ETA: end of sprint.',
+    notes:
+      'Working on the new authentication module. Needs review from security team before merging. ETA: end of sprint.',
     tags: 'react · typescript · auth · security · backend · api',
-    description: 'Alice leads the platform security initiative.\nResponsible for OAuth2 integration.\nCoordinates with the infra team weekly.\nCurrently unblocked.',
+    description:
+      'Alice leads the platform security initiative.\nResponsible for OAuth2 integration.\nCoordinates with the infra team weekly.\nCurrently unblocked.',
     status: '🟢 Active',
   },
   {
     id: '2',
     name: 'Bob Martinez',
     role: 'Designer',
-    notes: 'Redesigning the onboarding flow. User research complete. Wireframes approved. Moving to high-fidelity mockups.',
+    notes:
+      'Redesigning the onboarding flow. User research complete. Wireframes approved. Moving to high-fidelity mockups.',
     tags: 'figma · ux · onboarding · mobile · accessibility',
-    description: 'Bob owns the design system.\nCurrently iterating on mobile breakpoints.\nCollaborating with frontend on component specs.\nDelivery: next Thursday.',
+    description:
+      'Bob owns the design system.\nCurrently iterating on mobile breakpoints.\nCollaborating with frontend on component specs.\nDelivery: next Thursday.',
     status: '🟡 Review',
   },
   {
     id: '3',
     name: 'Carol Smith',
     role: 'PM',
-    notes: 'Q2 roadmap finalized. Stakeholder sign-off received. Coordinating with engineering leads for sprint planning.',
+    notes:
+      'Q2 roadmap finalized. Stakeholder sign-off received. Coordinating with engineering leads for sprint planning.',
     tags: 'roadmap · q2 · planning · stakeholders · strategy',
-    description: 'Carol manages cross-team dependencies.\nRoadmap approved by exec team.\nSprint planning scheduled for Monday.\nRisk: resource contention with data team.',
+    description:
+      'Carol manages cross-team dependencies.\nRoadmap approved by exec team.\nSprint planning scheduled for Monday.\nRisk: resource contention with data team.',
     status: '🟢 Active',
   },
   {
     id: '4',
     name: 'David Lee',
     role: 'DevOps',
-    notes: 'Migrating CI/CD pipeline to GitHub Actions. Docker images optimized. Kubernetes cluster upgrade scheduled.',
+    notes:
+      'Migrating CI/CD pipeline to GitHub Actions. Docker images optimized. Kubernetes cluster upgrade scheduled.',
     tags: 'devops · ci-cd · docker · kubernetes · github-actions',
-    description: 'David is upgrading the K8s cluster to v1.29.\nDocker base images reduced by 40%.\nGitHub Actions migration 80% complete.\nDowntime window: Saturday 2am.',
+    description:
+      'David is upgrading the K8s cluster to v1.29.\nDocker base images reduced by 40%.\nGitHub Actions migration 80% complete.\nDowntime window: Saturday 2am.',
     status: '🔵 In Progress',
   },
   {
     id: '5',
     name: 'Eva Chen',
     role: 'QA',
-    notes: 'Automated test coverage at 87%. Writing E2E tests for checkout flow. Regression suite runs in under 4 minutes.',
+    notes:
+      'Automated test coverage at 87%. Writing E2E tests for checkout flow. Regression suite runs in under 4 minutes.',
     tags: 'testing · playwright · e2e · automation · coverage',
-    description: 'Eva maintains the test automation framework.\nCoverage target: 90% by end of Q2.\nPlaywright suite added for checkout.\nFlaky test count reduced to 3.',
+    description:
+      'Eva maintains the test automation framework.\nCoverage target: 90% by end of Q2.\nPlaywright suite added for checkout.\nFlaky test count reduced to 3.',
     status: '🟢 Active',
   },
   {
     id: '6',
     name: 'Frank Wilson',
     role: 'Engineer',
-    notes: 'Performance optimization sprint. Reduced bundle size by 34%. Lazy loading implemented for all route components.',
+    notes:
+      'Performance optimization sprint. Reduced bundle size by 34%. Lazy loading implemented for all route components.',
     tags: 'performance · webpack · lazy-loading · optimization · react',
-    description: 'Frank is leading the perf sprint.\nBundle size: 1.2MB → 790KB.\nLCP improved from 3.4s to 1.8s.\nNext: image optimization pipeline.',
+    description:
+      'Frank is leading the perf sprint.\nBundle size: 1.2MB → 790KB.\nLCP improved from 3.4s to 1.8s.\nNext: image optimization pipeline.',
     status: '🟡 Review',
   },
   {
     id: '7',
     name: 'Grace Kim',
     role: 'Data',
-    notes: 'Building real-time analytics dashboard. Integrating with Kafka streams. Grafana dashboards configured.',
+    notes:
+      'Building real-time analytics dashboard. Integrating with Kafka streams. Grafana dashboards configured.',
     tags: 'analytics · kafka · grafana · data · streaming · sql',
-    description: 'Grace owns the data pipeline.\nKafka consumer lag < 200ms.\nGrafana dashboards live in staging.\nSQL query optimization ongoing.',
+    description:
+      'Grace owns the data pipeline.\nKafka consumer lag < 200ms.\nGrafana dashboards live in staging.\nSQL query optimization ongoing.',
     status: '🔵 In Progress',
   },
   {
     id: '8',
     name: 'Henry Park',
     role: 'Engineer',
-    notes: 'Refactoring legacy payment service. Stripe integration updated to v3 API. PCI compliance review pending.',
+    notes:
+      'Refactoring legacy payment service. Stripe integration updated to v3 API. PCI compliance review pending.',
     tags: 'payments · stripe · refactor · pci · backend · node',
-    description: 'Henry is blocked on PCI compliance sign-off.\nStripe v3 migration complete.\nLegacy code removed: 4,200 lines.\nAwaiting security audit results.',
+    description:
+      'Henry is blocked on PCI compliance sign-off.\nStripe v3 migration complete.\nLegacy code removed: 4,200 lines.\nAwaiting security audit results.',
     status: '🔴 Blocked',
   },
   {
     id: '9',
     name: 'Isla Torres',
     role: 'Engineer',
-    notes: 'Implementing real-time notifications via WebSockets. Backend complete. Frontend integration in progress.',
+    notes:
+      'Implementing real-time notifications via WebSockets. Backend complete. Frontend integration in progress.',
     tags: 'websockets · notifications · real-time · node · react · redis',
-    description: 'Isla is building the notification service.\nWebSocket server deployed to staging.\nFrontend toast component ready.\nLoad testing scheduled for Friday.',
+    description:
+      'Isla is building the notification service.\nWebSocket server deployed to staging.\nFrontend toast component ready.\nLoad testing scheduled for Friday.',
     status: '🔵 In Progress',
   },
   {
     id: '10',
     name: 'James Nguyen',
     role: 'DevOps',
-    notes: 'Setting up observability stack. Prometheus and Grafana deployed. Alert rules configured for all critical services.',
+    notes:
+      'Setting up observability stack. Prometheus and Grafana deployed. Alert rules configured for all critical services.',
     tags: 'prometheus · grafana · observability · alerting · sre · ops',
-    description: 'James owns the monitoring infrastructure.\nPrometheus scrape interval: 15s.\n12 alert rules active in production.\nOn-call rotation updated.',
+    description:
+      'James owns the monitoring infrastructure.\nPrometheus scrape interval: 15s.\n12 alert rules active in production.\nOn-call rotation updated.',
     status: '🟢 Active',
   },
   {
     id: '11',
     name: 'Karen Liu',
     role: 'Designer',
-    notes: 'Creating the new icon library. 200+ icons designed in Figma. Export pipeline to SVG and React components automated.',
+    notes:
+      'Creating the new icon library. 200+ icons designed in Figma. Export pipeline to SVG and React components automated.',
     tags: 'icons · figma · svg · design-system · react · automation',
-    description: 'Karen is leading the icon system project.\n200 icons complete, 40 in review.\nAutomated export via Figma API.\nDark mode variants in progress.',
+    description:
+      'Karen is leading the icon system project.\n200 icons complete, 40 in review.\nAutomated export via Figma API.\nDark mode variants in progress.',
     status: '🟡 Review',
   },
   {
     id: '12',
     name: 'Leo Patel',
     role: 'Data',
-    notes: 'Building ML pipeline for churn prediction. Feature engineering complete. Model training on AWS SageMaker.',
+    notes:
+      'Building ML pipeline for churn prediction. Feature engineering complete. Model training on AWS SageMaker.',
     tags: 'ml · python · sagemaker · churn · feature-engineering · aws',
-    description: 'Leo is training the churn prediction model.\nAUC-ROC: 0.87 on validation set.\nFeature store integrated with Redshift.\nDeployment target: end of month.',
+    description:
+      'Leo is training the churn prediction model.\nAUC-ROC: 0.87 on validation set.\nFeature store integrated with Redshift.\nDeployment target: end of month.',
     status: '🔵 In Progress',
   },
   {
     id: '13',
     name: 'Mia Robinson',
     role: 'PM',
-    notes: 'Coordinating the mobile app launch. App Store submission pending. Marketing campaign assets delivered.',
+    notes:
+      'Coordinating the mobile app launch. App Store submission pending. Marketing campaign assets delivered.',
     tags: 'mobile · launch · app-store · marketing · coordination · ios',
-    description: 'Mia is managing the mobile launch.\nApp Store review submitted Monday.\nMarketing assets approved by brand team.\nLaunch date: April 15th.',
+    description:
+      'Mia is managing the mobile launch.\nApp Store review submitted Monday.\nMarketing assets approved by brand team.\nLaunch date: April 15th.',
     status: '🟢 Active',
   },
   {
     id: '14',
     name: 'Noah Kim',
     role: 'QA',
-    notes: 'Auditing accessibility compliance. WCAG 2.1 AA gaps identified. Remediation tickets created for engineering.',
+    notes:
+      'Auditing accessibility compliance. WCAG 2.1 AA gaps identified. Remediation tickets created for engineering.',
     tags: 'accessibility · wcag · a11y · audit · screen-reader · aria',
-    description: 'Noah is leading the a11y audit.\n23 WCAG violations found and ticketed.\nScreen reader testing on iOS and Android.\nTarget: full AA compliance by Q3.',
+    description:
+      'Noah is leading the a11y audit.\n23 WCAG violations found and ticketed.\nScreen reader testing on iOS and Android.\nTarget: full AA compliance by Q3.',
     status: '🟡 Review',
   },
   {
     id: '15',
     name: 'Olivia Scott',
     role: 'Engineer',
-    notes: 'Migrating database from PostgreSQL 13 to 16. Zero-downtime migration plan approved. Dry run completed successfully.',
+    notes:
+      'Migrating database from PostgreSQL 13 to 16. Zero-downtime migration plan approved. Dry run completed successfully.',
     tags: 'postgresql · migration · database · zero-downtime · backend · sql',
-    description: 'Olivia is executing the DB migration.\nDry run completed in 4 minutes 12 seconds.\nRollback plan tested and documented.\nProduction migration: next maintenance window.',
+    description:
+      'Olivia is executing the DB migration.\nDry run completed in 4 minutes 12 seconds.\nRollback plan tested and documented.\nProduction migration: next maintenance window.',
     status: '🟢 Active',
   },
 ]
@@ -250,7 +280,8 @@ export default function ScrollCellExample() {
           style={{
             width: '100%',
             height: '100%',
-            background: 'repeating-linear-gradient(45deg,#1e1e2a,#1e1e2a 5px,#26263a 5px,#26263a 10px)',
+            background:
+              'repeating-linear-gradient(45deg,#1e1e2a,#1e1e2a 5px,#26263a 5px,#26263a 10px)',
             borderRadius: 4,
           }}
         />
