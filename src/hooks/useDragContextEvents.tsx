@@ -16,6 +16,7 @@ import useLongPress from './useLongPress'
 import useShiftTransforms from './useShiftTransforms'
 import useIndexMaps from './useIndexMaps'
 import useDropTarget from './useDropTarget'
+import { isScrollbarClick } from '../Components/utils'
 import type {
   HookRefs,
   DraggedState,
@@ -41,11 +42,6 @@ function findDraggable(target: EventTarget): { element: HTMLElement; foundHandle
     el = el.parentNode as HTMLElement | null
   }
   return null
-}
-
-function isScrollbarClick(e: React.MouseEvent, target: HTMLElement): boolean {
-  const rect = target.getBoundingClientRect()
-  return e.clientY > rect.top + target.clientHeight || e.clientX > rect.left + target.clientWidth
 }
 
 const useDragContextEvents = (
@@ -282,7 +278,7 @@ const useDragContextEvents = (
       if (e.button !== 0) return // ignore right-click / middle-click
       if (e.target === e.currentTarget) return // click on container itself (not a child)
       if (isTouchActiveRef.current) return // touch gesture in progress
-      if (isScrollbarClick(e, e.target as HTMLElement)) return // click on scrollbar track/thumb
+      if (isScrollbarClick(e.clientX, e.clientY, e.target as HTMLElement)) return // click on scrollbar track/thumb
 
       beginDrag(e, e.clientX, e.clientY)
     },

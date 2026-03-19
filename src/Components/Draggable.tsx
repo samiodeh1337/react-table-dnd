@@ -1,7 +1,7 @@
 import React, { useMemo, memo, useRef, useEffect } from 'react'
 import type { ReactElement, CSSProperties, ReactNode } from 'react'
 import { useTableStore, useTableDispatch } from './TableContainer/useTable'
-import { isIndexOutOfRange } from './utils'
+import { isIndexOutOfRange, isScrollbarClick } from './utils'
 import type { DragType } from '../hooks/types'
 
 export interface DraggableProps {
@@ -70,11 +70,12 @@ const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, s
     // Always allow clone creation — the long-press already validated the drag intent
     const isSyntheticFromTouch = !event.isTrusted
 
-    // If this draggable has a DragHandle and it's a real mouse click,
-    // only set clone if the click originated from the handle
-    if (hasHandleRef.current && !isSyntheticFromTouch) {
+    if (!isSyntheticFromTouch) {
       const target = event.target as HTMLElement
-      if (!target.closest('[data-drag-handle]')) return
+      // Ignore clicks on scrollbar tracks/thumbs — must check before cloning
+      if (isScrollbarClick(event.clientX, event.clientY, target)) return
+      // If this draggable has a DragHandle, only set clone if the click originated from the handle
+      if (hasHandleRef.current && !target.closest('[data-drag-handle]')) return
     }
 
     dispatch({
