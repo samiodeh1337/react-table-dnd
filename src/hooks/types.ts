@@ -1,4 +1,4 @@
-import type { MutableRefObject, ReactElement, RefObject } from 'react'
+import type { MutableRefObject, RefObject } from 'react'
 
 // --- Drag & Table types ---
 export type DragType = 'row' | 'column'
@@ -47,7 +47,6 @@ export interface HookRefs {
   placeholderRef: RefObject<HTMLDivElement | null>
 }
 export interface TableState {
-  clone: ReactElement | null
   dragged: DraggedState
   dragType: DragType | null
   rect: RectState
@@ -61,7 +60,6 @@ export interface TableState {
 
 // --- Actions ---
 export type TableAction =
-  | { type: 'setClone'; value: ReactElement | null }
   | { type: 'setDragged'; value: Partial<DraggedState> }
   | { type: 'setDragType'; value: DragType | null }
   | { type: 'setTableDimensions'; value: TableDimensions }

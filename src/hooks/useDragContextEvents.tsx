@@ -86,7 +86,6 @@ const useDragContextEvents = (
       const id = draggableEl.dataset.id
       const sourceIndex = +draggableEl.dataset.index!
       const dtype = draggableEl.dataset.type as DragType | undefined
-      const isTouch = e.type === 'touchstart'
 
       // Reset refs
       dragTypeRef.current = dtype ?? null
@@ -95,12 +94,6 @@ const useDragContextEvents = (
       cloneBodyElRef.current = null
       prevTargetIndexRef.current = null
       dragEndFiredRef.current = false
-
-      if (isTouch) {
-        draggableEl.dispatchEvent(
-          new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }),
-        )
-      }
 
       const scrollOffset = dtype === 'row' ? (refs.bodyRef?.current?.scrollLeft ?? 0) : 0
       const itemRect = draggableEl.getBoundingClientRect()
@@ -129,7 +122,55 @@ const useDragContextEvents = (
       if (tableEl) tableEl.style.touchAction = 'none'
 
       const cloneEl = refs.cloneRef?.current
-      if (cloneEl) cloneEl.style.transform = `translate(${translate.x}px, ${translate.y}px)`
+      if (cloneEl) {
+        cloneEl.innerHTML = ''
+        cloneEl.style.transform = `translate(${translate.x}px, ${translate.y}px)`
+
+        // Build native DOM clone (no React re-render needed)
+        // Important: clone the *inner content* (children of Draggable), NOT draggableEl itself.
+        // draggableEl may carry virtual-scroll positioning (position:absolute, top:Xpx, transform)
+        // that would misplace the clone inside #portalroot.
+        // This mirrors what React.cloneElement(children) did in the old Draggable.onPointerDown.
+        if (dtype === 'row') {
+          // children of Draggable = first child of draggableEl's inner div = the .tr element
+          const rowContent = draggableEl.firstElementChild?.firstElementChild
+          if (rowContent) cloneEl.appendChild(rowContent.cloneNode(true))
+        } else if (dtype === 'column' && body) {
+          const idx = String(sourceIndex)
+
+          // Header: clone just the .th element — mirrors React.cloneElement(children) from Draggable
+          const thEl = draggableEl.querySelector('.th')
+          if (thEl) {
+            const headerWrapper = document.createElement('div')
+            headerWrapper.style.flexShrink = '0'
+            headerWrapper.style.order = '-1'
+            headerWrapper.appendChild(thEl.cloneNode(true))
+            cloneEl.appendChild(headerWrapper)
+          }
+
+          // Body column strip — same structure the React portal produced
+          const bodyWrapper = document.createElement('div')
+          bodyWrapper.style.overflow = 'hidden'
+          bodyWrapper.style.flex = '1'
+
+          const inner = document.createElement('div')
+          inner.className = 'rbody'
+          inner.style.height = `${body.scrollHeight}px`
+          inner.style.position = 'relative'
+
+          body.querySelectorAll('[data-type="row"]').forEach((row) => {
+            const rowClone = row.cloneNode(true) as HTMLElement
+            rowClone.querySelectorAll('[data-col-index]').forEach((cell) => {
+              if (cell.getAttribute('data-col-index') !== idx) cell.remove()
+            })
+            inner.appendChild(rowClone)
+          })
+
+          bodyWrapper.appendChild(inner)
+          cloneEl.appendChild(bodyWrapper)
+          cloneBodyElRef.current = bodyWrapper
+        }
+      }
 
       if (refs.tableRef?.current) {
         dispatch({
@@ -150,7 +191,7 @@ const useDragContextEvents = (
         },
       })
 
-      // Sync clone scroll
+      // Sync clone scroll with body
       const bodyScrollLeft = body?.scrollLeft ?? 0
       const bodyScrollTop = body?.scrollTop ?? 0
       requestAnimationFrame(() => {
@@ -158,9 +199,8 @@ const useDragContextEvents = (
         if (!c) return
         if (dtype === 'row') {
           c.scrollLeft = bodyScrollLeft
-        } else {
-          const cb = c.querySelector('.clone-body') as HTMLElement | null
-          if (cb) cb.scrollTop = bodyScrollTop
+        } else if (cloneBodyElRef.current) {
+          cloneBodyElRef.current.scrollTop = bodyScrollTop
         }
       })
     },
@@ -308,11 +348,6 @@ const useDragContextEvents = (
       const bodyScrollTop = container.scrollTop
       const cloneEl = refs.cloneRef?.current
 
-      // Cache .clone-body reference for column drags (querySelector is expensive)
-      if (cloneEl && dragTypeRef.current === 'column' && !cloneBodyElRef.current) {
-        cloneBodyElRef.current = cloneEl.querySelector('.clone-body') as HTMLElement | null
-      }
-
       // DOM writes
       if (cloneEl) {
         cloneEl.style.transform = `translate(${clientX - initial.x}px, ${clientY - initial.y}px)`
@@ -435,18 +470,10 @@ const useDragContextEvents = (
         cloneEl.style.transform = 'translate(0px, 0px)'
         cloneEl.style.visibility = ''
         cloneEl.scrollLeft = 0
+        cloneEl.innerHTML = ''
       }
     }
   }, [dragged.isDragging, clearShiftTransforms, refs.cloneRef])
-
-  // Chrome Android needs touch-action:none set before the first pointerdown, so this is permanent
-  // useEffect(() => {
-  //   const body = refs.bodyRef?.current
-  //   if (body) body.style.touchAction = 'none'
-  //   return () => {
-  //     if (body) body.style.touchAction = ''
-  //   }
-  // }, [refs.bodyRef])
 
   // pointermove is rAF-throttled so we don't block the main thread on every event
   useEffect(() => {
