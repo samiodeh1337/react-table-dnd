@@ -14,15 +14,8 @@ export interface DraggableProps {
 }
 
 const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, styles = {} }) => {
-  const draggedID = useTableStore((s) => s.dragged.draggedID)
-  const isDraggingState = useTableStore((s) => s.dragged.isDragging)
   const rowDragRange = useTableStore((s) => s.options.rowDragRange)
   const columnDragRange = useTableStore((s) => s.options.columnDragRange)
-
-  const isDragging = useMemo(
-    () => String(id) === String(draggedID) && isDraggingState,
-    [id, draggedID, isDraggingState],
-  )
 
   const disableDrag = useMemo(
     () =>
@@ -32,26 +25,24 @@ const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, s
     [index, columnDragRange.end, columnDragRange.start, rowDragRange.end, rowDragRange.start, type],
   )
 
-  // Detect if this draggable contains a DragHandle — cached once after mount
   const innerRef = useRef<HTMLDivElement>(null)
 
-  // Transform is applied directly via DOM in useDragContextEvents
+  // opacity, zIndex, pointerEvents, and grabbing cursor are applied directly via DOM
+  // in useDragContextEvents.beginDrag/finalizeDrop — not through React state.
+  // This prevents ALL Draggable instances from re-rendering on drag start/end.
   const draggableInnerStyles: CSSProperties = useMemo(
     () => ({
-      cursor: isDragging ? '-webkit-grabbing' : disableDrag ? 'auto' : '-webkit-grab',
-      zIndex: isDragging ? 2 : 1,
-      opacity: isDragging ? 0 : 1,
-      pointerEvents: isDragging ? 'none' : 'auto',
+      cursor: disableDrag ? 'auto' : '-webkit-grab',
       display: 'flex',
     }),
-    [disableDrag, isDragging],
+    [disableDrag],
   )
 
   useEffect(() => {
     if (innerRef.current && innerRef.current.querySelector('[data-drag-handle]')) {
       innerRef.current.style.cursor = 'auto'
     }
-  }, [children, disableDrag, isDragging])
+  }, [children, disableDrag])
 
   return (
     <div

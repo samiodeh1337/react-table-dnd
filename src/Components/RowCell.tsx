@@ -13,25 +13,20 @@ interface RowCellProps {
 
 const RowCell: React.FC<RowCellProps> = memo(({ children, style, className, ...props }) => {
   const { index } = props
-  const columnIds = useTableStore((s) => s.columnIds)
   const widths = useTableStore((s) => s.widths)
   const defaultSizing = useTableStore((s) => s.options.defaultSizing)
-  const draggedID = useTableStore((s) => s.dragged.draggedID)
-
-  const columnId = useMemo(() => columnIds[index] ?? '', [columnIds, index])
   const rowCellWidth = useMemo(() => widths[index] ?? defaultSizing, [widths, index, defaultSizing])
 
-  const isDragging = useMemo(() => columnId === draggedID, [columnId, draggedID])
-
+  // opacity is managed via direct DOM in useDragContextEvents.beginDrag/finalizeDrop
+  // so RowCell no longer re-renders on column drag start/end.
   const styles = useMemo(
     () => ({
       display: 'inline-flex',
-      opacity: isDragging ? 0 : 1,
       width: `${rowCellWidth}px`,
       flex: `${rowCellWidth} 0 auto`,
       ...style,
     }),
-    [isDragging, rowCellWidth, style],
+    [rowCellWidth, style],
   )
 
   return (
