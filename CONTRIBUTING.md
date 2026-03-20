@@ -14,8 +14,8 @@ Thank you for your interest in contributing! This guide will help you get starte
 1. **Fork** the repository on GitHub
 2. **Clone** your fork locally:
    ```bash
-   git clone https://github.com/<your-username>/sortable-table.git
-   cd sortable-table
+   git clone https://github.com/<your-username>/react-table-dnd.git
+   cd react-table-dnd
    ```
 3. **Install** dependencies:
    ```bash
@@ -89,7 +89,7 @@ Examples:
 
 ## Reporting Bugs
 
-Use the [Bug Report](https://github.com/samiodeh1337/sortable-table/issues/new?template=bug_report.md) template. Include:
+Use the [Bug Report](https://github.com/samiodeh1337/react-table-dnd/issues/new?template=bug_report.md) template. Include:
 
 - Steps to reproduce
 - Expected vs actual behavior
@@ -97,7 +97,7 @@ Use the [Bug Report](https://github.com/samiodeh1337/sortable-table/issues/new?t
 
 ## Requesting Features
 
-Use the [Feature Request](https://github.com/samiodeh1337/sortable-table/issues/new?template=feature_request.md) template. Describe:
+Use the [Feature Request](https://github.com/samiodeh1337/react-table-dnd/issues/new?template=feature_request.md) template. Describe:
 
 - The problem you're trying to solve
 - Your proposed solution

@@ -14,17 +14,17 @@
   <a href="https://www.npmjs.com/package/react-table-dnd"><img src="https://img.shields.io/npm/v/react-table-dnd?color=6366f1&label=npm" alt="npm" /></a>
   <a href="https://bundlephobia.com/package/react-table-dnd"><img src="https://img.shields.io/bundlephobia/minzip/react-table-dnd?color=6366f1&label=size" alt="bundle size" /></a>
   <a href="https://www.npmjs.com/package/react-table-dnd"><img src="https://img.shields.io/npm/dm/react-table-dnd?color=6366f1" alt="downloads" /></a>
-  <a href="https://github.com/samiodeh1337/sortable-table/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/react-table-dnd?color=6366f1" alt="license" /></a>
+  <a href="https://github.com/samiodeh1337/react-table-dnd/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/react-table-dnd?color=6366f1" alt="license" /></a>
 </p>
 
 <p>
-  <a href="https://samiodeh1337.github.io/sortable-table/"><strong>Live Demos & Docs</strong></a>
+  <a href="https://samiodeh1337.github.io/react-table-dnd/"><strong>Live Demos & Docs</strong></a>
   &nbsp;&middot;&nbsp;
   <a href="#quick-start">Quick Start</a>
   &nbsp;&middot;&nbsp;
   <a href="#api">API</a>
   &nbsp;&middot;&nbsp;
-  <a href="https://github.com/samiodeh1337/sortable-table">GitHub</a>
+  <a href="https://github.com/samiodeh1337/react-table-dnd">GitHub</a>
 </p>
 
 </div>
@@ -245,8 +245,8 @@ Mobile uses long-press to initiate drag.
 ## Contributing
 
 ```bash
-git clone https://github.com/samiodeh1337/sortable-table.git
-cd sortable-table
+git clone https://github.com/samiodeh1337/react-table-dnd.git
+cd react-table-dnd
 npm install
 npm run dev    # docs site at localhost:5173
 ```
