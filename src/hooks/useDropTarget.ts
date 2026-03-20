@@ -48,7 +48,7 @@ const useDropTarget = (refs: HookRefs, options: Options): DropTargetResult => {
     const { start, end } = options.rowDragRange
     if (start || end) {
       items = items.filter(
-        (item) => (!start || +item.index >= start) && (!end || +item.index < end),
+        (item) => (!start || +item.index >= start) && (!end || +item.index <= end),
       )
     }
     return items
@@ -75,7 +75,7 @@ const useDropTarget = (refs: HookRefs, options: Options): DropTargetResult => {
     if (start !== undefined || end !== undefined) {
       items = items.filter((item) => {
         const idx = +item.index!
-        return (start === undefined || idx >= start) && (end === undefined || idx < end)
+        return (start === undefined || idx >= start) && (end === undefined || idx <= end)
       })
     }
     return items

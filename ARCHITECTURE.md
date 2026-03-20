@@ -1,8 +1,8 @@
-# FlexiTableSort — Architecture & Technical Deep Dive
+# react-table-dnd — Architecture & Technical Deep Dive
 
 ## Overview
 
-FlexiTableSort is a React table component library with drag-and-drop reordering for both rows and columns. It achieves 60fps drag animations by manipulating the DOM directly (CSS transforms) instead of triggering React re-renders during drag. The library supports desktop (mouse/pen) and mobile (long-press + touch) with auto-scrolling near container edges.
+react-table-dnd is a React table component library with drag-and-drop reordering for both rows and columns. It achieves 60fps drag animations by manipulating the DOM directly (CSS transforms) instead of triggering React re-renders during drag. The library supports desktop (mouse/pen) and mobile (long-press + touch) with auto-scrolling near container edges.
 
 ---
 
@@ -253,7 +253,7 @@ interface HookRefs {
 ## Consumer API
 
 ```tsx
-import { TableContainer, TableHeader, TableBody, BodyRow, ColumnCell, RowCell, DragHandle } from "flexitablesort";
+import { TableContainer, TableHeader, TableBody, BodyRow, ColumnCell, RowCell, DragHandle } from "react-table-dnd";
 
 <TableContainer
   onDragEnd={({ sourceIndex, targetIndex, dragType }) => {

@@ -7,5 +7,6 @@ export default defineConfig({
   build: {
     outDir: 'docs-dist',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 600,
   },
 })

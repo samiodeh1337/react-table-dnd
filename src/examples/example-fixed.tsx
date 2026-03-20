@@ -41,7 +41,7 @@ const td: React.CSSProperties = {
 }
 
 const FixedExample = () => {
-  const [data, setData] = useState(() => generateRows(100))
+  const [data, setData] = useState(() => generateRows(5000))
   const [cols, setCols] = useState(INIT_COLS)
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 
@@ -74,7 +74,7 @@ const FixedExample = () => {
       >
         <TableHeader>
           {cols.map((col, i) => (
-            <ColumnCell key={col.id} id={col.id} index={i} width={col.width} style={th}>
+            <ColumnCell key={col.id} id={col.id} index={i} style={{ ...th, width: col.width }}>
               {col.title}
             </ColumnCell>
           ))}

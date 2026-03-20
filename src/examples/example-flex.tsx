@@ -63,6 +63,13 @@ const CustomRowHeightsExample = () => {
   const [cols, setCols] = useState(INIT_COLS)
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 
+  // Stable heights keyed by row id — survives reorder
+  const [heightMap] = useState<Map<string, number>>(() => {
+    const m = new Map<string, number>()
+    generateRows(100).forEach((row, i) => m.set(row.id, ROW_HEIGHTS[i % ROW_HEIGHTS.length]))
+    return m
+  })
+
   const handleDragEnd = useCallback((r: DragEndResult) => {
     if (r.sourceIndex === r.targetIndex) return
     if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
@@ -107,14 +114,14 @@ const CustomRowHeightsExample = () => {
       >
         <TableHeader>
           {cols.map((col, i) => (
-            <ColumnCell key={col.id} id={col.id} index={i} width={col.width} style={th}>
+            <ColumnCell key={col.id} id={col.id} index={i} style={{ ...th, width: col.width }}>
               {col.title}
             </ColumnCell>
           ))}
         </TableHeader>
         <TableBody>
           {data.map((row, ri) => {
-            const h = ROW_HEIGHTS[ri % ROW_HEIGHTS.length]
+            const h = heightMap.get(row.id) ?? 40
             const isEven = ri % 2 === 0
             return (
               <BodyRow key={row.id} id={row.id} index={ri} style={{ minHeight: h }}>

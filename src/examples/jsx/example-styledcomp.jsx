@@ -8,7 +8,7 @@ import {
   TableBody,
   BodyRow,
   RowCell,
-} from 'flexitablesort'
+} from 'react-table-dnd'
 
 function arrayMove(arr, from, to) {
   const next = arr.slice()

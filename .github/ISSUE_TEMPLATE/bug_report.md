@@ -1,6 +1,6 @@
 ---
 name: 🐛 Bug Report
-about: Report a bug to help us improve flexitablesort
+about: Report a bug to help us improve react-table-dnd
 title: "[Bug]: "
 labels: bug
 assignees: ""
@@ -26,7 +26,7 @@ assignees: ""
 
 ## Environment
 
-- **flexitablesort version**:
+- **react-table-dnd version**:
 - **React version**:
 - **Browser**: (e.g., Chrome 120, Safari 17)
 - **OS**: (e.g., macOS 14, Windows 11)

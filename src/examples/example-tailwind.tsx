@@ -73,7 +73,7 @@ const TailwindExample = () => {
       >
         <TableHeader>
           {cols.map((col, i) => (
-            <ColumnCell key={col.id} id={col.id} index={i} width={col.width} style={thStyle}>
+            <ColumnCell key={col.id} id={col.id} index={i} style={{ ...thStyle, width: col.width }}>
               {col.title}
             </ColumnCell>
           ))}

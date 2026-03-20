@@ -50,7 +50,9 @@ const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(
 
     const theadDefaultStyles: React.CSSProperties = useMemo(
       () => ({
-        overflow: 'hidden',
+        overflowX: 'scroll' as const,
+        overflowY: 'clip' as const,
+        scrollbarWidth: 'none' as const,
         display: 'flex',
         paddingRight: `${bodyScrollBarWidth}px`,
         userSelect: isDragging ? ('none' as const) : ('auto' as const),

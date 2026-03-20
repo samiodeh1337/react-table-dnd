@@ -2,19 +2,38 @@
  * Example: Showcase — polished dark theme with status badges, score bars,
  * avatar initials, role chips, gradient header, hover highlights, and
  * a custom "Drop here" placeholder.
+ * Columns can be dynamically pinned left/right via the pin icon menu.
+ * Rows drag via grip handle only.
  */
-import React, { useCallback, useState, useMemo } from 'react'
-import { TableContainer, TableHeader, ColumnCell, TableBody, BodyRow, RowCell } from '../Components'
+import React, { useCallback, useState, useMemo, useEffect } from 'react'
+import { createPortal } from 'react-dom'
+import {
+  TableContainer,
+  TableHeader,
+  ColumnCell,
+  TableBody,
+  BodyRow,
+  RowCell,
+  DragHandle,
+} from '../Components'
 import { generateRows, arrayMove, type Row } from './example-data'
 import type { DragEndResult } from '../Components'
 
 const INIT_COLS = [
+  { id: '_handle', title: '', width: 40 },
   { id: 'name', title: 'Name', width: 200 },
   { id: 'role', title: 'Role', width: 130 },
   { id: 'status', title: 'Status', width: 120 },
   { id: 'department', title: 'Department', width: 140 },
+  { id: 'email', title: 'Email', width: 200 },
+  { id: 'location', title: 'Location', width: 130 },
+  { id: 'salary', title: 'Salary', width: 100 },
+  { id: 'joined', title: 'Joined', width: 110 },
   { id: 'score', title: 'Score', width: 120 },
 ]
+
+// only _handle is always pinned and cannot be unpinned
+const ALWAYS_PINNED = new Set(['_handle'])
 
 const STATUS: Record<string, { bg: string; color: string; dot: string }> = {
   Active: { bg: '#052e1f', color: '#34d399', dot: '#10b981' },
@@ -46,7 +65,6 @@ const AVATAR_COLORS = [
   '#22c55e',
 ]
 
-// Stable hash from string → number (so colors don't shift on reorder)
 const stableHash = (s: string) => {
   let h = 0
   for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0
@@ -73,19 +91,41 @@ const GripIcon = ({ style }: { style?: React.CSSProperties }) => (
   </svg>
 )
 
+const PinIconSvg = ({ filled = false, size = 12 }: { filled?: boolean; size?: number }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill={filled ? 'currentColor' : 'none'}
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ flexShrink: 0 }}
+  >
+    <line x1="12" y1="17" x2="12" y2="22" />
+    <path d="M5 17h14v-1.76a2 2 0 00-1.11-1.79l-1.78-.9A2 2 0 0115 10.76V6h1a2 2 0 000-4H8a2 2 0 000 4h1v4.76a2 2 0 01-1.11 1.79l-1.78.9A2 2 0 005 15.24z" />
+  </svg>
+)
+
 const thStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
   height: 42,
-  padding: '0 16px',
+  padding: '0 12px 0 16px',
   fontSize: 12,
   fontWeight: 600,
   color: '#94a3b8',
   background: '#0f172a',
   borderBottom: '2px solid #1e293b',
   letterSpacing: '0.04em',
-  cursor: 'grab',
+}
+
+const thPinnedStyle: React.CSSProperties = {
+  ...thStyle,
+  background: '#0a1120',
+  color: '#64748b',
 }
 
 const tdStyle: React.CSSProperties = {
@@ -96,6 +136,46 @@ const tdStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   borderBottom: '1px solid #1e293b',
+}
+
+const tdPinnedStyle: React.CSSProperties = {
+  ...tdStyle,
+  background: '#0a1120',
+}
+
+const MenuItem = ({
+  children,
+  onClick,
+  danger,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  danger?: boolean
+}) => {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        padding: '7px 10px',
+        fontSize: 12,
+        fontWeight: 500,
+        color: danger ? '#f87171' : '#cbd5e1',
+        cursor: 'pointer',
+        borderRadius: 6,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        whiteSpace: 'nowrap',
+        background: hovered ? (danger ? '#2a1215' : '#1e293b') : 'transparent',
+        transition: 'background 0.1s',
+      }}
+    >
+      {children}
+    </div>
+  )
 }
 
 const Avatar = ({ name }: { name: string }) => {
@@ -235,12 +315,121 @@ const HintPill = ({ icon, children }: { icon: React.ReactNode; children: React.R
   </span>
 )
 
+const handleStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  padding: '0 2px',
+}
+
 const ShowcaseExample = () => {
   const [data, setData] = useState(() => generateRows(80))
   const [cols, setCols] = useState(INIT_COLS)
-  const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
+  const [pinnedLeft, setPinnedLeft] = useState<Set<string>>(new Set(['_handle']))
+  const [pinnedRight, setPinnedRight] = useState<Set<string>>(new Set())
+  const [activeMenu, setActiveMenu] = useState<string | null>(null)
+  const [menuRect, setMenuRect] = useState<DOMRect | null>(null)
 
-  // Stable stripe: based on row id, not render index
+  // Close menu on outside click
+  useEffect(() => {
+    if (!activeMenu) return
+    const handler = () => setActiveMenu(null)
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [activeMenu])
+
+  const options = useMemo(
+    () => ({
+      columnDragRange: { start: pinnedLeft.size, end: cols.length - 1 - pinnedRight.size },
+      rowDragRange: {},
+    }),
+    [cols.length, pinnedLeft.size, pinnedRight.size],
+  )
+
+  const getStickyLeft = useCallback(
+    (index: number) => {
+      let offset = 0
+      for (let i = 0; i < index; i++) {
+        if (pinnedLeft.has(cols[i].id)) offset += cols[i].width ?? 100
+      }
+      return offset
+    },
+    [cols, pinnedLeft],
+  )
+
+  const getStickyRight = useCallback(
+    (index: number) => {
+      let offset = 0
+      for (let i = cols.length - 1; i > index; i--) {
+        if (pinnedRight.has(cols[i].id)) offset += cols[i].width ?? 100
+      }
+      return offset
+    },
+    [cols, pinnedRight],
+  )
+
+  const openMenu = useCallback((colId: string, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation()
+    setActiveMenu((prev) => (prev === colId ? null : colId))
+    setMenuRect(e.currentTarget.getBoundingClientRect())
+  }, [])
+
+  const pinLeft = useCallback(
+    (colId: string) => {
+      const currentIndex = cols.findIndex((c) => c.id === colId)
+      const targetIndex = pinnedLeft.size
+      if (currentIndex !== targetIndex) setCols((p) => arrayMove(p, currentIndex, targetIndex))
+      setPinnedLeft((p) => new Set([...p, colId]))
+      setPinnedRight((p) => {
+        const s = new Set(p)
+        s.delete(colId)
+        return s
+      })
+      setActiveMenu(null)
+    },
+    [cols, pinnedLeft.size],
+  )
+
+  const pinRight = useCallback(
+    (colId: string) => {
+      const currentIndex = cols.findIndex((c) => c.id === colId)
+      const targetIndex = cols.length - 1 - pinnedRight.size
+      if (currentIndex !== targetIndex) setCols((p) => arrayMove(p, currentIndex, targetIndex))
+      setPinnedRight((p) => new Set([...p, colId]))
+      setPinnedLeft((p) => {
+        const s = new Set(p)
+        s.delete(colId)
+        return s
+      })
+      setActiveMenu(null)
+    },
+    [cols, pinnedRight.size],
+  )
+
+  const unpin = useCallback(
+    (colId: string) => {
+      const currentIndex = cols.findIndex((c) => c.id === colId)
+      if (pinnedLeft.has(colId)) {
+        const targetIndex = pinnedLeft.size - 1
+        if (currentIndex !== targetIndex) setCols((p) => arrayMove(p, currentIndex, targetIndex))
+        setPinnedLeft((p) => {
+          const s = new Set(p)
+          s.delete(colId)
+          return s
+        })
+      } else {
+        const targetIndex = cols.length - pinnedRight.size
+        if (currentIndex !== targetIndex) setCols((p) => arrayMove(p, currentIndex, targetIndex))
+        setPinnedRight((p) => {
+          const s = new Set(p)
+          s.delete(colId)
+          return s
+        })
+      }
+      setActiveMenu(null)
+    },
+    [cols, pinnedLeft, pinnedRight],
+  )
+
   const stripeSet = useMemo(() => {
     const s = new Set<string>()
     data.forEach((r, i) => {
@@ -266,8 +455,18 @@ const ShowcaseExample = () => {
     if (colId === 'role') return <RoleChip role={String(row.role)} />
     if (colId === 'status') return <StatusBadge status={String(row.status)} />
     if (colId === 'score') return <ScoreBar score={Number(row.score)} />
+    if (colId === 'salary')
+      return <span style={{ color: '#34d399', fontWeight: 600 }}>{row.salary}</span>
+    if (colId === 'joined')
+      return (
+        <span style={{ color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>{row.joined}</span>
+      )
     return <span style={{ color: '#94a3b8' }}>{row[colId]}</span>
   }
+
+  const activeMenuColId = activeMenu
+  const activeMenuIsPinned =
+    !!activeMenuColId && (pinnedLeft.has(activeMenuColId) || pinnedRight.has(activeMenuColId))
 
   return (
     <div style={{ width: '100%' }}>
@@ -286,7 +485,7 @@ const ShowcaseExample = () => {
             </svg>
           }
         >
-          Drag rows up / down
+          Grip to drag rows
         </HintPill>
         <HintPill
           icon={
@@ -302,7 +501,7 @@ const ShowcaseExample = () => {
             </svg>
           }
         >
-          Drag column headers left / right
+          Grip to drag columns
         </HintPill>
         <HintPill
           icon={
@@ -322,7 +521,9 @@ const ShowcaseExample = () => {
         >
           Mobile: long-press to start
         </HintPill>
+        <HintPill icon={<PinIconSvg size={11} />}>Pin columns via header icon</HintPill>
       </div>
+
       <TableContainer
         options={options}
         onDragEnd={handleDragEnd}
@@ -337,40 +538,202 @@ const ShowcaseExample = () => {
         }}
       >
         <TableHeader>
-          {cols.map((col, i) => (
-            <ColumnCell key={col.id} id={col.id} index={i} width={col.width} style={thStyle}>
-              <GripIcon style={{ opacity: 0.25 }} />
-              {col.title}
-            </ColumnCell>
-          ))}
+          {cols.map((col, i) => {
+            const leftPinned = pinnedLeft.has(col.id)
+            const rightPinned = pinnedRight.has(col.id)
+            const colIsPinned = leftPinned || rightPinned
+            const alwaysPinned = ALWAYS_PINNED.has(col.id)
+
+            const stickyStyle: React.CSSProperties | undefined = leftPinned
+              ? { position: 'sticky', left: getStickyLeft(i), zIndex: 2 }
+              : rightPinned
+                ? { position: 'sticky', right: getStickyRight(i), zIndex: 2 }
+                : undefined
+
+            const cell = (
+              <ColumnCell
+                key={col.id}
+                id={col.id}
+                index={i}
+                style={{ ...(colIsPinned ? thPinnedStyle : thStyle), width: col.width }}
+              >
+                {col.id === '_handle' ? (
+                  <span style={{ opacity: 0.25, color: '#94a3b8' }}>
+                    <PinIconSvg />
+                  </span>
+                ) : (
+                  <>
+                    {!colIsPinned && (
+                      <DragHandle style={handleStyle}>
+                        <GripIcon style={{ opacity: 0.25 }} />
+                      </DragHandle>
+                    )}
+                    <span
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {col.title}
+                    </span>
+                    {!alwaysPinned && (
+                      <button
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => openMenu(col.id, e)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '2px 3px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          color: colIsPinned ? '#6366f1' : '#334155',
+                          borderRadius: 4,
+                          flexShrink: 0,
+                          lineHeight: 0,
+                          opacity: colIsPinned ? 1 : 0.6,
+                        }}
+                        title={colIsPinned ? 'Unpin column' : 'Pin column'}
+                      >
+                        <PinIconSvg filled={colIsPinned} />
+                      </button>
+                    )}
+                  </>
+                )}
+              </ColumnCell>
+            )
+
+            return stickyStyle ? (
+              <div key={col.id} style={stickyStyle}>
+                {cell}
+              </div>
+            ) : (
+              cell
+            )
+          })}
         </TableHeader>
+
         <TableBody>
           {data.map((row) => {
             const isStripe = stripeSet.has(row.id)
             const bg = isStripe ? '#131c2e' : '#0f172a'
             return (
               <BodyRow key={row.id} id={row.id} index={data.indexOf(row)}>
-                {cols.map((col, ci) => (
-                  <RowCell
-                    key={col.id}
-                    index={ci}
-                    width={col.width}
-                    style={{
-                      ...tdStyle,
-                      background: bg,
-                      cursor: 'grab',
-                      ...(ci === 0 ? { gap: 8 } : {}),
-                    }}
-                  >
-                    {ci === 0 && <GripIcon />}
-                    {renderCell(row, col.id)}
-                  </RowCell>
-                ))}
+                {cols.map((col, ci) => {
+                  const leftPinned = pinnedLeft.has(col.id)
+                  const rightPinned = pinnedRight.has(col.id)
+                  const colIsPinned = leftPinned || rightPinned
+                  return (
+                    <RowCell
+                      key={col.id}
+                      index={ci}
+                      width={col.width}
+                      style={{
+                        ...(colIsPinned ? tdPinnedStyle : tdStyle),
+                        background: colIsPinned ? '#0a1120' : bg,
+                        ...(col.id === '_handle'
+                          ? { justifyContent: 'center', padding: '0 8px' }
+                          : {}),
+                        ...(leftPinned
+                          ? { position: 'sticky', left: getStickyLeft(ci), zIndex: 1 }
+                          : rightPinned
+                            ? { position: 'sticky', right: getStickyRight(ci), zIndex: 1 }
+                            : {}),
+                      }}
+                    >
+                      {col.id === '_handle' ? (
+                        <DragHandle style={handleStyle}>
+                          <GripIcon />
+                        </DragHandle>
+                      ) : (
+                        renderCell(row, col.id)
+                      )}
+                    </RowCell>
+                  )
+                })}
               </BodyRow>
             )
           })}
         </TableBody>
       </TableContainer>
+
+      {/* Pin menu portal — rendered on document.body to escape overflow clipping */}
+      {activeMenu &&
+        menuRect &&
+        createPortal(
+          <div
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: menuRect.bottom + 4,
+              left: Math.max(4, menuRect.right - 148),
+              zIndex: 9999,
+              background: '#0f172a',
+              border: '1px solid #1e293b',
+              borderRadius: 10,
+              padding: '4px',
+              boxShadow: '0 16px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)',
+              minWidth: 148,
+            }}
+          >
+            {!pinnedLeft.has(activeMenu) && (
+              <MenuItem onClick={() => pinLeft(activeMenu)}>
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                >
+                  <path d="M19 12H5M5 12l7-7M5 12l7 7" />
+                </svg>
+                Pin Left
+              </MenuItem>
+            )}
+            {!pinnedRight.has(activeMenu) && (
+              <MenuItem onClick={() => pinRight(activeMenu)}>
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                >
+                  <path d="M5 12h14M19 12l-7-7M19 12l-7 7" />
+                </svg>
+                Pin Right
+              </MenuItem>
+            )}
+            {activeMenuIsPinned && (
+              <>
+                <div style={{ height: 1, background: '#1e293b', margin: '3px 4px' }} />
+                <MenuItem onClick={() => unpin(activeMenu)} danger>
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                  Unpin
+                </MenuItem>
+              </>
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

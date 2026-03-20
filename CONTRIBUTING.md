@@ -1,4 +1,4 @@
-# Contributing to flexitablesort
+# Contributing to react-table-dnd
 
 Thank you for your interest in contributing! This guide will help you get started.
 

@@ -1,6 +1,6 @@
 ---
 name: 🚀 Feature Request
-about: Suggest a new feature or enhancement for flexitablesort
+about: Suggest a new feature or enhancement for react-table-dnd
 title: "[Feature]: "
 labels: enhancement
 assignees: ""

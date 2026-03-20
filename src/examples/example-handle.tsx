@@ -109,7 +109,7 @@ const DragHandleExample = () => {
       >
         <TableHeader>
           {cols.map((col, i) => (
-            <ColumnCell key={col.id} id={col.id} index={i} width={col.width} style={th}>
+            <ColumnCell key={col.id} id={col.id} index={i} style={{ ...th, width: col.width }}>
               <DragHandle style={handleStyle}>
                 <GripIcon />
               </DragHandle>

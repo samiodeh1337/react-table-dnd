@@ -52,9 +52,14 @@ const useDragContextEvents = (
   options: Options,
   onDragEnd: ((result: DragEndResult) => void) | undefined,
 ) => {
-  const { startAutoScroll, stopAutoScroll, setContainerRect, pointerRef } = useAutoScroll(
-    refs as Parameters<typeof useAutoScroll>[0],
-  )
+  const {
+    startAutoScroll,
+    stopAutoScroll,
+    setContainerRect,
+    pointerRef,
+    isAutoScrollingVertical,
+    isAutoScrollingHorizontal,
+  } = useAutoScroll(refs as Parameters<typeof useAutoScroll>[0])
 
   const indexMaps = useIndexMaps(refs)
   const { rowIndexMapRef, colIndexMapRef, cellIndexMapRef, mapStaleRef } = indexMaps
@@ -70,6 +75,7 @@ const useDragContextEvents = (
   const sourceIndexRef = useRef<number | null>(null)
   const targetIndexRef = useRef<number | null>(null)
   const dragEndFiredRef = useRef(false)
+  const isVirtualRef = useRef(false)
   const cloneBodyElRef = useRef<HTMLElement | null>(null)
   const draggedInnerElRef = useRef<HTMLElement | null>(null)
   const draggedColCellsRef = useRef<HTMLElement[]>([])
@@ -143,6 +149,9 @@ const useDragContextEvents = (
         // draggableEl may carry virtual-scroll positioning (position:absolute, top:Xpx, transform)
         // that would misplace the clone inside #portalroot.
         // This mirrors what React.cloneElement(children) did in the old Draggable.onPointerDown.
+        const firstBodyRow = body?.querySelector('[data-type="row"]') as HTMLElement | null
+        isVirtualRef.current = firstBodyRow?.style.position === 'absolute'
+
         if (dtype === 'row') {
           // children of Draggable = first child of draggableEl's inner div = the .tr element
           const rowContent = draggableEl.firstElementChild?.firstElementChild
@@ -160,9 +169,8 @@ const useDragContextEvents = (
             cloneEl.appendChild(headerWrapper)
           }
 
-          // Body column strip — same structure the React portal produced
+          // Body column strip
           const bodyWrapper = document.createElement('div')
-          bodyWrapper.style.overflow = 'hidden'
           bodyWrapper.style.flex = '1'
 
           const inner = document.createElement('div')
@@ -172,13 +180,35 @@ const useDragContextEvents = (
 
           body.querySelectorAll('[data-type="row"]').forEach((row) => {
             const rowClone = row.cloneNode(true) as HTMLElement
-            rowClone.querySelectorAll('[data-col-index]').forEach((cell) => {
-              if (cell.getAttribute('data-col-index') !== idx) cell.remove()
-            })
+            if (isVirtualRef.current) {
+              // Virtual rows have spacer divs alongside cells. Strip .tr down to just
+              // the target cell so the column strip shows correctly at offset 0.
+              const trEl = rowClone.querySelector('.tr')
+              if (trEl) {
+                const targetCell = trEl.querySelector(`[data-col-index="${idx}"]`)
+                while (trEl.firstChild) trEl.removeChild(trEl.firstChild)
+                if (targetCell) trEl.appendChild(targetCell)
+              }
+            } else {
+              rowClone.querySelectorAll('[data-col-index]').forEach((cell) => {
+                if (cell.getAttribute('data-col-index') !== idx) cell.remove()
+              })
+            }
             inner.appendChild(rowClone)
           })
 
           bodyWrapper.appendChild(inner)
+
+          if (isVirtualRef.current) {
+            // overflow:auto lets scrollTop work; scrollbarWidth:none hides the scrollbar (Firefox)
+            // The 'clone-body-strip' class hides scrollbar in WebKit via style.css
+            bodyWrapper.style.overflow = 'auto'
+            bodyWrapper.style.scrollbarWidth = 'none'
+            bodyWrapper.className = 'clone-body-strip'
+          } else {
+            bodyWrapper.style.overflow = 'hidden'
+          }
+
           cloneEl.appendChild(bodyWrapper)
           cloneBodyElRef.current = bodyWrapper
 
@@ -198,8 +228,12 @@ const useDragContextEvents = (
           dragged: { initial, translate, draggedID: id ?? null, isDragging: true, sourceIndex },
           dragType: (dtype as DragType) ?? null,
           tableDimensions: {
-            height: refs.tableRef?.current?.offsetHeight ?? 0,
-            width: refs.tableRef?.current?.offsetWidth ?? 0,
+            height:
+              (refs.tableRef?.current?.offsetHeight ?? 0) -
+              (body ? body.offsetHeight - body.clientHeight : 0),
+            width:
+              (refs.tableRef?.current?.offsetWidth ?? 0) -
+              (body ? body.offsetWidth - body.clientWidth : 0),
           },
         },
       })
@@ -386,9 +420,26 @@ const useDragContextEvents = (
 
       const dtype = dragTypeRef.current || dragType
 
-      indexMaps.checkStaleness()
+      if (isVirtualRef.current) {
+        indexMaps.checkStaleness()
+      }
 
-      // edge-zone auto-scroll; rebuild maps when finger leaves the zone
+      if (mapStaleRef.current) {
+        cachedItemsRef.current = null
+        targetIndexRef.current = null
+        prevTargetIndexRef.current = null
+        if (isVirtualRef.current) {
+          if (dtype === 'row') {
+            indexMaps.rebuildRowMap(container)
+          } else {
+            indexMaps.rebuildColumnMaps(container, refs.headerRef?.current ?? null)
+          }
+        } else {
+          mapStaleRef.current = false
+        }
+      }
+
+      // edge-zone auto-scroll
       if (dtype === 'row') {
         if (clientY < rect.top + EDGE_SCROLL_ZONE) {
           startAutoScroll(-EDGE_SCROLL_SPEED, container, 'vertical')
@@ -397,12 +448,29 @@ const useDragContextEvents = (
           startAutoScroll(EDGE_SCROLL_SPEED, container, 'vertical')
           mapStaleRef.current = true
         } else {
+          const wasScrollingV = isAutoScrollingVertical.current
           stopAutoScroll()
-          if (mapStaleRef.current) {
-            cachedItemsRef.current = null
-            prevTargetIndexRef.current = null
-            targetIndexRef.current = null
-            indexMaps.rebuildRowMap(container)
+          if (wasScrollingV) {
+            requestAnimationFrame(() => {
+              const c = refs.bodyRef?.current
+              if (!c) return
+              if (isVirtualRef.current) indexMaps.rebuildRowMap(c)
+              cachedItemsRef.current = null
+              const freshRect = c.getBoundingClientRect()
+              cachedContainerRef.current = freshRect
+              const freshDropIndex = resolveDropIndex(
+                pointerRef.current.x,
+                pointerRef.current.y,
+                'row',
+                freshRect,
+                c.scrollTop,
+                initialRef.current,
+                draggedSizeRef.current,
+              )
+              targetIndexRef.current = freshDropIndex
+              prevTargetIndexRef.current = null
+              applyShiftTransforms(sourceIndexRef.current, freshDropIndex, 'row')
+            })
           }
         }
       } else {
@@ -413,12 +481,34 @@ const useDragContextEvents = (
           startAutoScroll(EDGE_SCROLL_SPEED, container, 'horizontal')
           mapStaleRef.current = true
         } else {
+          const wasScrollingH = isAutoScrollingHorizontal.current
           stopAutoScroll()
-          if (mapStaleRef.current) {
-            cachedItemsRef.current = null
-            prevTargetIndexRef.current = null
-            targetIndexRef.current = null
-            indexMaps.rebuildColumnMaps(container, refs.headerRef?.current ?? null)
+          if (wasScrollingH) {
+            // React virtualizer commits new virtual columns asynchronously after scroll.
+            // Wait one rAF for the commit, then: rebuild maps, recompute drop zone from
+            // fresh column rects, and re-apply shift transforms.
+            requestAnimationFrame(() => {
+              const c = refs.bodyRef?.current
+              if (!c) return
+              if (isVirtualRef.current)
+                indexMaps.rebuildColumnMaps(c, refs.headerRef?.current ?? null)
+              // Clear cached positions so resolveDropIndex re-reads from the updated DOM
+              cachedItemsRef.current = null
+              const freshRect = c.getBoundingClientRect()
+              cachedContainerRef.current = freshRect
+              const freshDropIndex = resolveDropIndex(
+                pointerRef.current.x,
+                pointerRef.current.y,
+                'column',
+                freshRect,
+                c.scrollTop,
+                initialRef.current,
+                draggedSizeRef.current,
+              )
+              targetIndexRef.current = freshDropIndex
+              prevTargetIndexRef.current = null
+              applyShiftTransforms(sourceIndexRef.current, freshDropIndex, 'column')
+            })
           }
         }
       }
@@ -445,6 +535,8 @@ const useDragContextEvents = (
       dragType,
       startAutoScroll,
       stopAutoScroll,
+      isAutoScrollingVertical,
+      isAutoScrollingHorizontal,
       indexMaps,
       resolveDropIndex,
       applyShiftTransforms,

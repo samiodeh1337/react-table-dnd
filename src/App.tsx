@@ -8,11 +8,13 @@ import CustomRowHeightsExample from './examples/example-flex'
 import OptionsExample from './examples/example-options'
 import CustomStyledExample from './examples/example-styled'
 import VirtualExample from './examples/example-virtual'
+import Virtual2DExample from './examples/example-virtual2d'
 import StylingExample from './examples/example-styling'
 import DragHandleExample from './examples/example-handle'
 import StyledCompExample from './examples/example-styledcomp'
 import TailwindExample from './examples/example-tailwind'
 import ScrollCellExample from './examples/example-scrollcell'
+import WidthsExample from './examples/example-widths'
 import {
   TableContainer as _TC,
   TableHeader as _TH,
@@ -29,12 +31,14 @@ import srcFlexTsx from './examples/example-flex.tsx?raw'
 import srcOptionsTsx from './examples/example-options.tsx?raw'
 import srcStyledTsx from './examples/example-styled.tsx?raw'
 import srcVirtualTsx from './examples/example-virtual.tsx?raw'
+import srcVirtual2dTsx from './examples/example-virtual2d.tsx?raw'
 import srcStylingTsx from './examples/example-styling.tsx?raw'
 import srcHandleTsx from './examples/example-handle.tsx?raw'
 import srcStyledCompTsx from './examples/example-styledcomp.tsx?raw'
 import srcTailwindTsx from './examples/example-tailwind.tsx?raw'
-import srcScrollCellTsx from './examples/tsx/example-scrollcell.tsx?raw'
+import srcScrollCellTsx from './examples/example-scrollcell.tsx?raw'
 import srcScrollCellJsx from './examples/jsx/example-scrollcell.jsx?raw'
+import srcWidthsTsx from './examples/example-widths.tsx?raw'
 import srcDataTsx from './examples/example-data.ts?raw'
 
 // Raw source imports for code preview (JSX — standalone copies)
@@ -43,6 +47,7 @@ import srcFlexJsx from './examples/jsx/example-flex.jsx?raw'
 import srcOptionsJsx from './examples/jsx/example-options.jsx?raw'
 import srcStyledJsx from './examples/jsx/example-styled.jsx?raw'
 import srcVirtualJsx from './examples/jsx/example-virtual.jsx?raw'
+import srcVirtual2dJsx from './examples/jsx/example-virtual2d.jsx?raw'
 import srcStylingJsx from './examples/jsx/example-styling.jsx?raw'
 import srcHandleJsx from './examples/jsx/example-handle.jsx?raw'
 import srcStyledCompJsx from './examples/jsx/example-styledcomp.jsx?raw'
@@ -59,7 +64,7 @@ function prepareTsx(raw: string): string {
     .replace(/\/\/.*\n/, '') // remove "Shared data generation" comment
     .replace(/^export /gm, '') // remove export keywords
   return raw
-    .replace(/from ["']\.\.\/Components["']/g, 'from "flexitablesort"')
+    .replace(/from ["']\.\.\/Components["']/g, 'from "react-table-dnd"')
     .replace(/import\s*\{[^}]*\}\s*from\s*["']\.\/example-data["'];?\n?/g, cleanData + '\n')
 }
 
@@ -94,10 +99,17 @@ const EXAMPLES = [
   },
   {
     id: 'virtual',
-    label: 'Virtual (100k rows)',
+    label: 'Virtual (rows)',
     component: VirtualExample,
     tsx: prepareTsx(srcVirtualTsx),
     jsx: srcVirtualJsx,
+  },
+  {
+    id: 'virtual2d',
+    label: 'Virtual (rows + cols)',
+    component: Virtual2DExample,
+    tsx: prepareTsx(srcVirtual2dTsx),
+    jsx: srcVirtual2dJsx,
   },
   {
     id: 'handle',
@@ -131,18 +143,25 @@ const EXAMPLES = [
     id: 'scrollcell',
     label: 'Scrollable Cells',
     component: ScrollCellExample,
-    tsx: srcScrollCellTsx,
+    tsx: prepareTsx(srcScrollCellTsx),
     jsx: srcScrollCellJsx,
+  },
+  {
+    id: 'widths',
+    label: 'Column Widths',
+    component: WidthsExample,
+    tsx: prepareTsx(srcWidthsTsx),
+    jsx: prepareTsx(srcWidthsTsx),
   },
 ] as const
 
-const INSTALL_CMD = 'npm install flexitablesort'
+const INSTALL_CMD = 'npm install react-table-dnd'
 
 const BASIC_USAGE = `import { useState } from "react";
 import {
   TableContainer, TableHeader, ColumnCell,
   TableBody, BodyRow, RowCell,
-} from "flexitablesort";
+} from "react-table-dnd";
 
 const INIT_COLS = [
   { id: "name", label: "Name",  width: 150 },
@@ -179,7 +198,7 @@ function MyTable() {
     <TableContainer onDragEnd={handleDragEnd}>
       <TableHeader>
         {cols.map((col, i) => (
-          <ColumnCell key={col.id} id={col.id} index={i} width={col.width}>
+          <ColumnCell key={col.id} id={col.id} index={i} style={{ width: col.width }}>
             {col.label}
           </ColumnCell>
         ))}
@@ -188,7 +207,7 @@ function MyTable() {
         {rows.map((row, ri) => (
           <BodyRow key={row.id} id={row.id} index={ri}>
             {cols.map((col, ci) => (
-              <RowCell key={col.id} index={ci} width={col.width}>
+              <RowCell key={col.id} index={ci}>
                 {row[col.id]}
               </RowCell>
             ))}
@@ -422,7 +441,7 @@ function App() {
       <nav className="nav">
         <div className="nav-inner">
           <a href="#" className="nav-logo">
-            flexitable<span>sort</span>
+            react-table<span>-dnd</span>
           </a>
           <button className="nav-toggle" onClick={() => setNavOpen((v) => !v)} aria-label="Menu">
             <svg
@@ -465,7 +484,11 @@ function App() {
             >
               GitHub
             </a>
-            <a href="https://www.npmjs.com/package/flexitablesort" target="_blank" rel="noreferrer">
+            <a
+              href="https://www.npmjs.com/package/react-table-dnd"
+              target="_blank"
+              rel="noreferrer"
+            >
               npm
             </a>
           </div>
@@ -699,12 +722,12 @@ function App() {
       {/* Getting Started */}
       <section className="section" id="getting-started">
         <h2>Getting Started</h2>
-        <p className="subtitle">Install and set up flexitablesort in under a minute.</p>
+        <p className="subtitle">Install and set up react-table-dnd in under a minute.</p>
 
         <h3>Installation</h3>
         <CodeBlock
           lang="bash"
-          code={`# npm\nnpm install flexitablesort\n\n# yarn\nyarn add flexitablesort\n\n# pnpm\npnpm add flexitablesort`}
+          code={`# npm\nnpm install react-table-dnd\n\n# yarn\nyarn add react-table-dnd\n\n# pnpm\npnpm add react-table-dnd`}
         />
 
         <h3>Peer Dependencies</h3>
