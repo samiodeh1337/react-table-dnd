@@ -28,6 +28,7 @@ const ColumnCell: React.FC<ColumnCellProps> = memo(({ children, style, className
     () => ({
       width: `${colCellWidth}px`,
       flex: styleFlex !== undefined ? styleFlex : `${colCellWidth} 0 auto`,
+      boxSizing: 'border-box' as const,
     }),
     [colCellWidth, styleFlex],
   )

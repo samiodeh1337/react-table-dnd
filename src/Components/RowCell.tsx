@@ -25,6 +25,9 @@ const RowCell: React.FC<RowCellProps> = memo(({ children, style, className, ...p
       width: `${rowCellWidth}px`,
       flex: `${rowCellWidth} 0 auto`,
       ...style,
+      // Always enforce border-box so user padding doesn't expand the cell
+      // beyond the declared width and misalign with the header column.
+      boxSizing: 'border-box' as const,
     }),
     [rowCellWidth, style],
   )
