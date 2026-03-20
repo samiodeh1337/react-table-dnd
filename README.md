@@ -1,3 +1,7 @@
+> ⚠️ **This package has been renamed to [react-table-dnd](https://www.npmjs.com/package/react-table-dnd).**
+> Please migrate: `npm uninstall flexitablesort && npm install react-table-dnd`
+> This package will no longer receive updates.
+
 <div align="center">
 
 # flexitablesort
