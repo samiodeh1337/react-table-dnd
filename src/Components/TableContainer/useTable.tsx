@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import { useSyncExternalStore } from 'use-sync-external-store/shim'
+import { useSyncExternalStore } from 'react'
 import type { TableStore } from './store'
 import type { TableState, TableAction } from '../../hooks/types'
 
