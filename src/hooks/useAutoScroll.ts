@@ -10,6 +10,9 @@ const useAutoScroll = (refs: HookRefs) => {
     ((speed: number, ref: HTMLDivElement, dir: 'horizontal' | 'vertical') => void) | null
   >(null)
 
+  // headerRef is a stable React.RefObject — store in a ref so autoScroll (empty deps) can read it
+  const headerRefStable = useRef(headerRef)
+
   const isAutoScrollingHorizontal = useRef(false)
   const isAutoScrollingVertical = useRef(false)
   const decaySpeed = useRef(0)
@@ -69,7 +72,11 @@ const useAutoScroll = (refs: HookRefs) => {
         : ref.scrollWidth - ref.clientWidth
 
       if (isVertical) ref.scrollTop += speed
-      else ref.scrollLeft += speed
+      else {
+        ref.scrollLeft += speed
+        const hRef = headerRefStable.current
+        if (hRef?.current) hRef.current.scrollLeft = ref.scrollLeft
+      }
 
       // Hit boundary — stop
       const pos = isVertical ? ref.scrollTop : ref.scrollLeft

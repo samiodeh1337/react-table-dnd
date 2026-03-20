@@ -1,5 +1,5 @@
 {
-  "name": "flexitablesort",
+  "name": "react-table-dnd",
   "version": "1.1.13",
   "type": "module",
   "description": "Sortable table with draggable rows and columns",

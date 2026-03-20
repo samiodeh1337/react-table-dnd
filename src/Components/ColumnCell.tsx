@@ -6,40 +6,44 @@ import type { ReactNode } from 'react'
 
 interface ColumnCellProps {
   children: ReactNode
-  width?: number
   style?: React.CSSProperties
   className?: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [propName: string]: any
 }
 
-const ColumnCell: React.FC<ColumnCellProps> = memo(
-  ({ children, width, style, className, ...props }) => {
-    const defaultSizing = useTableStore((s) => s.options.defaultSizing)
+const ColumnCell: React.FC<ColumnCellProps> = memo(({ children, style, className, ...props }) => {
+  const defaultSizing = useTableStore((s) => s.options.defaultSizing)
 
-    const colCellWidth = useMemo(() => width ?? defaultSizing, [width, defaultSizing])
+  const { width: styleWidth, flex: styleFlex, ...contentStyle } = style ?? {}
 
-    const draggableStyles = useMemo(
-      () => ({
-        width: `${colCellWidth}px`,
-        flex: `${colCellWidth} 0 auto`,
-      }),
-      [colCellWidth],
-    )
+  const colCellWidth = useMemo(() => {
+    if (styleWidth === undefined) return defaultSizing
+    return typeof styleWidth === 'number'
+      ? styleWidth
+      : parseFloat(String(styleWidth)) || defaultSizing
+  }, [styleWidth, defaultSizing])
 
-    return (
-      <Draggable {...(props as DraggableProps)} styles={draggableStyles} type={'column'}>
-        <div
-          className={`th ${className ?? ''}`}
-          data-width={width}
-          style={{ width: '100%', ...style }}
-        >
-          {children}
-        </div>
-      </Draggable>
-    )
-  },
-)
+  const draggableStyles = useMemo(
+    () => ({
+      width: `${colCellWidth}px`,
+      flex: styleFlex !== undefined ? styleFlex : `${colCellWidth} 0 auto`,
+    }),
+    [colCellWidth, styleFlex],
+  )
+
+  return (
+    <Draggable {...(props as DraggableProps)} styles={draggableStyles} type={'column'}>
+      <div
+        className={`th ${className ?? ''}`}
+        data-width={colCellWidth}
+        style={{ width: '100%', ...contentStyle }}
+      >
+        {children}
+      </div>
+    </Draggable>
+  )
+})
 
 ColumnCell.displayName = 'ColumnCell'
 export default ColumnCell

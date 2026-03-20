@@ -1,9 +1,9 @@
 <div align="center">
 
-# flexitablesort
+# react-table-dnd
 
 <p>
-  <img src="./docs/desktop.gif" alt="flexitablesort — drag rows and columns" width="680" />
+  <img src="./docs/desktop.gif" alt="react-table-dnd — drag rows and columns" width="680" />
 </p>
 
 <p><strong>Drag-and-drop row & column reordering for React tables.</strong></p>
@@ -11,10 +11,10 @@
 <p>60fps animations &middot; Auto-scroll &middot; Mobile long-press &middot; Virtual scrolling &middot; Zero UI deps</p>
 
 <p>
-  <a href="https://www.npmjs.com/package/flexitablesort"><img src="https://img.shields.io/npm/v/flexitablesort?color=6366f1&label=npm" alt="npm" /></a>
-  <a href="https://bundlephobia.com/package/flexitablesort"><img src="https://img.shields.io/bundlephobia/minzip/flexitablesort?color=6366f1&label=size" alt="bundle size" /></a>
-  <a href="https://www.npmjs.com/package/flexitablesort"><img src="https://img.shields.io/npm/dm/flexitablesort?color=6366f1" alt="downloads" /></a>
-  <a href="https://github.com/samiodeh1337/sortable-table/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/flexitablesort?color=6366f1" alt="license" /></a>
+  <a href="https://www.npmjs.com/package/react-table-dnd"><img src="https://img.shields.io/npm/v/react-table-dnd?color=6366f1&label=npm" alt="npm" /></a>
+  <a href="https://bundlephobia.com/package/react-table-dnd"><img src="https://img.shields.io/bundlephobia/minzip/react-table-dnd?color=6366f1&label=size" alt="bundle size" /></a>
+  <a href="https://www.npmjs.com/package/react-table-dnd"><img src="https://img.shields.io/npm/dm/react-table-dnd?color=6366f1" alt="downloads" /></a>
+  <a href="https://github.com/samiodeh1337/sortable-table/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/react-table-dnd?color=6366f1" alt="license" /></a>
 </p>
 
 <p>
@@ -31,7 +31,7 @@
 
 ---
 
-## Why flexitablesort?
+## Why react-table-dnd?
 
 - **Rows & columns** — reorder both independently, automatic direction detection
 - **60fps** — direct DOM transforms during drag, no React re-renders until drop
@@ -48,7 +48,7 @@
 ## Install
 
 ```bash
-npm install flexitablesort
+npm install react-table-dnd
 ```
 
 > Requires `react` and `react-dom` >= 17.0.0
@@ -59,7 +59,7 @@ npm install flexitablesort
 import {
   TableContainer, TableHeader, ColumnCell,
   TableBody, BodyRow, RowCell,
-} from "flexitablesort";
+} from "react-table-dnd";
 
 function arrayMove(arr, from, to) {
   const next = [...arr];
@@ -89,7 +89,7 @@ export default function App() {
     >
       <TableHeader>
         {cols.map((col, i) => (
-          <ColumnCell key={col.id} id={col.id} index={i} width={col.width}>
+          <ColumnCell key={col.id} id={col.id} index={i} style={{ width: col.width }}>
             {col.label}
           </ColumnCell>
         ))}
@@ -98,7 +98,7 @@ export default function App() {
         {rows.map((row, ri) => (
           <BodyRow key={row.id} id={row.id} index={ri}>
             {cols.map((col, ci) => (
-              <RowCell key={col.id} index={ci} width={col.width}>
+              <RowCell key={col.id} index={ci}>
                 {row[col.id]}
               </RowCell>
             ))}
@@ -118,13 +118,25 @@ export default function App() {
 |---|---|---|
 | **`TableContainer`** | `onDragEnd`, `options`, `renderPlaceholder`, `className`, `style` | Root wrapper — provides drag context |
 | **`TableHeader`** | `className`, `style` | Header row container |
-| **`ColumnCell`** | **`id`**, **`index`**, `width`, `className`, `style` | Draggable column header cell |
+| **`ColumnCell`** | **`id`**, **`index`**, `className`, `style` | Draggable column header cell |
 | **`TableBody`** | `className`, `style` | Scrollable body — pass `ref` for virtual scrolling |
 | **`BodyRow`** | **`id`**, **`index`**, `className`, `style` | Draggable row |
-| **`RowCell`** | **`index`**, `width`, `className`, `style` | Cell within a row |
+| **`RowCell`** | **`index`**, `className`, `style` | Cell within a row |
 | **`DragHandle`** | `className`, `style` | Wrap inside BodyRow/ColumnCell to restrict drag to this element |
 
 Bold props are required.
+
+### Column Width
+
+Pass `width` inside the `style` prop on `ColumnCell`. Columns grow proportionally by default to fill available space. To fix a column at exactly its pixel size, also pass `flex`:
+
+```jsx
+{/* Flex — grows proportionally to fill container (default) */}
+<ColumnCell style={{ width: 150 }}>Name</ColumnCell>
+
+{/* Fixed — stays exactly 150px regardless of container width */}
+<ColumnCell style={{ width: 150, flex: "0 0 150px" }}>Name</ColumnCell>
+```
 
 ### Types
 
@@ -155,7 +167,7 @@ interface DragRange {
 ### Drag Handle
 
 ```jsx
-import { DragHandle } from "flexitablesort";
+import { DragHandle } from "react-table-dnd";
 
 <BodyRow id="1" index={0}>
   <RowCell index={0}>

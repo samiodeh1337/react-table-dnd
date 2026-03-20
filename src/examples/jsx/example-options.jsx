@@ -6,7 +6,7 @@ import {
   TableBody,
   BodyRow,
   RowCell,
-} from 'flexitablesort'
+} from 'react-table-dnd'
 
 function generateRows(count) {
   const ROLES = ['Engineer', 'Designer', 'PM', 'QA', 'DevOps', 'Analyst', 'Lead', 'Manager']

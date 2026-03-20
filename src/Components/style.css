@@ -44,6 +44,16 @@
   -webkit-touch-callout: none !important;
 }
 
+/* hide webkit scrollbar on header scroll container (scrollLeft synced via JS) */
+[data-flexitable-root] .thead::-webkit-scrollbar {
+  display: none;
+}
+
+/* hide webkit scrollbar on virtual column drag body strip */
+[data-flexitable-root] .clone-body-strip::-webkit-scrollbar {
+  display: none;
+}
+
 /* drag handle: only the handle shows grab cursor when not actively dragging */
 [data-flexitable-root]:not(.is-dragging) .draggable:has([data-drag-handle]) > div {
   cursor: default !important;

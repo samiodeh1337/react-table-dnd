@@ -10,7 +10,7 @@ import {
   TableBody,
   BodyRow,
   RowCell,
-} from 'flexitablesort'
+} from 'react-table-dnd'
 
 function arrayMove(arr, from, to) {
   const next = arr.slice()
@@ -290,7 +290,7 @@ export default function ScrollCellExample() {
     >
       <TableHeader>
         {cols.map((col, i) => (
-          <ColumnCell key={col.id} id={col.id} index={i} width={col.width} style={th}>
+          <ColumnCell key={col.id} id={col.id} index={i} style={{ ...th, width: col.width }}>
             {col.title}
           </ColumnCell>
         ))}

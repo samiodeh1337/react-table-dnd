@@ -6,7 +6,7 @@ import {
   TableBody,
   BodyRow,
   RowCell,
-} from 'flexitablesort'
+} from 'react-table-dnd'
 
 function generateRows(count) {
   const ROLES = ['Engineer', 'Designer', 'PM', 'QA', 'DevOps', 'Analyst', 'Lead', 'Manager']
@@ -101,7 +101,7 @@ export default function StylingExample() {
     >
       <TableHeader className="my-header">
         {cols.map((col, i) => (
-          <ColumnCell key={col.id} id={col.id} index={i} width={col.width} className="my-col">
+          <ColumnCell key={col.id} id={col.id} index={i} style={{ width: col.width }} className="my-col">
             {col.title}
           </ColumnCell>
         ))}

@@ -7,7 +7,7 @@ import {
   TableBody,
   BodyRow,
   RowCell,
-} from 'flexitablesort'
+} from 'react-table-dnd'
 
 function generateData(count) {
   const STATUSES = ['Active', 'Inactive', 'Pending', 'On Leave', 'Terminated']
