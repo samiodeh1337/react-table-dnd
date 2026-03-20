@@ -51,7 +51,7 @@
 npm install react-table-dnd
 ```
 
-> Requires `react` and `react-dom` >= 17.0.0
+> Requires `react` and `react-dom` >= 18.0.0
 
 ## Quick Start
 

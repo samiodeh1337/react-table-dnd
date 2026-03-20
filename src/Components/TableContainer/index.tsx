@@ -2,7 +2,7 @@ import React, { useImperativeHandle, useMemo, forwardRef, useState } from 'react
 import type { CSSProperties, ReactNode } from 'react'
 import { Styles } from './styles'
 import { useEffect, useRef } from 'react'
-import { useSyncExternalStore } from 'use-sync-external-store/shim'
+import { useSyncExternalStore } from 'react'
 import { StoreContext } from './useTable'
 import { createTableStore } from './store'
 import useDragContextEvents from '../../hooks/useDragContextEvents'
