@@ -1,6 +1,13 @@
 import React, { useCallback, useRef, useState, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { TableContainer, TableHeader, ColumnCell, TableBody, BodyRow, RowCell } from 'react-table-dnd'
+import {
+  TableContainer,
+  TableHeader,
+  ColumnCell,
+  TableBody,
+  BodyRow,
+  RowCell,
+} from 'react-table-dnd'
 
 const ROW_HEIGHT = 36
 const COL_WIDTH = 120
@@ -65,10 +72,7 @@ export default function Virtual2DExample() {
   const [cols, setCols] = useState(INIT_COLS)
   const bodyRef = useRef(null)
 
-  const options = useMemo(
-    () => ({ columnDragRange: { start: 0 }, rowDragRange: { start: 0 } }),
-    [],
-  )
+  const options = useMemo(() => ({ columnDragRange: { start: 0 }, rowDragRange: { start: 0 } }), [])
 
   const handleDragEnd = useCallback(({ sourceIndex, targetIndex, dragType }) => {
     if (sourceIndex === targetIndex) return
@@ -146,7 +150,9 @@ export default function Virtual2DExample() {
                   transform: `translateY(${vRow.start}px)`,
                 }}
               >
-                {leftSpacer > 0 && <div style={{ width: leftSpacer, height: ROW_HEIGHT, flexShrink: 0 }} />}
+                {leftSpacer > 0 && (
+                  <div style={{ width: leftSpacer, height: ROW_HEIGHT, flexShrink: 0 }} />
+                )}
                 {colVirtualItems.map((vCol) => (
                   <RowCell
                     key={vCol.key}
@@ -156,7 +162,9 @@ export default function Virtual2DExample() {
                     {row[cols[vCol.index].key]}
                   </RowCell>
                 ))}
-                {rightSpacer > 0 && <div style={{ width: rightSpacer, height: ROW_HEIGHT, flexShrink: 0 }} />}
+                {rightSpacer > 0 && (
+                  <div style={{ width: rightSpacer, height: ROW_HEIGHT, flexShrink: 0 }} />
+                )}
               </BodyRow>
             )
           })}

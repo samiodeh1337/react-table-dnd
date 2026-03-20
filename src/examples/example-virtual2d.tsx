@@ -109,7 +109,7 @@ const Virtual2DExample = () => {
   })
 
   // Column virtualizer — horizontal, same scroll element
-   
+
   const colVirtualizer = useVirtualizer({
     count: cols.length,
     getScrollElement: () => bodyRef.current,
