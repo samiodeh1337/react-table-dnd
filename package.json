@@ -45,9 +45,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/samiodeh1337/sortable-table.git"
+    "url": "git+https://github.com/samiodeh1337/react-table-dnd.git"
   },
-  "homepage": "https://samiodeh1337.github.io/sortable-table/",
+  "homepage": "https://samiodeh1337.github.io/react-table-dnd/",
   "peerDependencies": {
     "react": ">=17.0.0",
     "react-dom": ">=17.0.0"

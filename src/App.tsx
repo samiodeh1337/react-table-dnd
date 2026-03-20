@@ -478,7 +478,7 @@ function App() {
               API
             </a>
             <a
-              href="https://github.com/samiodeh1337/sortable-table"
+              href="https://github.com/samiodeh1337/react-table-dnd"
               target="_blank"
               rel="noreferrer"
             >
@@ -512,7 +512,7 @@ function App() {
             See Demos
           </a>
           <a
-            href="https://github.com/samiodeh1337/sortable-table"
+            href="https://github.com/samiodeh1337/react-table-dnd"
             className="btn btn-secondary"
             target="_blank"
             rel="noreferrer"
@@ -1203,7 +1203,11 @@ function App() {
             Sami Odeh
           </a>{' '}
           &middot; MIT License &middot;{' '}
-          <a href="https://github.com/samiodeh1337/sortable-table" target="_blank" rel="noreferrer">
+          <a
+            href="https://github.com/samiodeh1337/react-table-dnd"
+            target="_blank"
+            rel="noreferrer"
+          >
             Source on GitHub
           </a>
         </p>

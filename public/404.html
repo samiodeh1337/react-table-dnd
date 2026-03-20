@@ -7,7 +7,8 @@
       // GitHub Pages SPA redirect — preserves the path/hash for client-side routing
       var path = window.location.pathname + window.location.search + window.location.hash
       window.location.replace(
-        '/sortable-table/' + (path !== '/sortable-table/' ? '?p=' + encodeURIComponent(path) : ''),
+        '/react-table-dnd/' +
+          (path !== '/react-table-dnd/' ? '?p=' + encodeURIComponent(path) : ''),
       )
     </script>
   </head>
