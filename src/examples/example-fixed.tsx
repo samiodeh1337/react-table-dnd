@@ -41,7 +41,7 @@ const td: React.CSSProperties = {
 }
 
 const FixedExample = () => {
-  const [data, setData] = useState(() => generateRows(5000))
+  const [data, setData] = useState(() => generateRows(100))
   const [cols, setCols] = useState(INIT_COLS)
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 

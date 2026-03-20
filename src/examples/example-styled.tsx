@@ -545,9 +545,19 @@ const ShowcaseExample = () => {
             const alwaysPinned = ALWAYS_PINNED.has(col.id)
 
             const stickyStyle: React.CSSProperties | undefined = leftPinned
-              ? { position: 'sticky', left: getStickyLeft(i), zIndex: 2 }
+              ? {
+                  position: 'sticky',
+                  left: getStickyLeft(i),
+                  zIndex: 2,
+                  flex: `0 0 ${col.width}px`,
+                }
               : rightPinned
-                ? { position: 'sticky', right: getStickyRight(i), zIndex: 2 }
+                ? {
+                    position: 'sticky',
+                    right: getStickyRight(i),
+                    zIndex: 2,
+                    flex: `0 0 ${col.width}px`,
+                  }
                 : undefined
 
             const cell = (
@@ -638,9 +648,19 @@ const ShowcaseExample = () => {
                           ? { justifyContent: 'center', padding: '0 8px' }
                           : {}),
                         ...(leftPinned
-                          ? { position: 'sticky', left: getStickyLeft(ci), zIndex: 1 }
+                          ? {
+                              position: 'sticky',
+                              left: getStickyLeft(ci),
+                              zIndex: 1,
+                              flex: `0 0 ${col.width}px`,
+                            }
                           : rightPinned
-                            ? { position: 'sticky', right: getStickyRight(ci), zIndex: 1 }
+                            ? {
+                                position: 'sticky',
+                                right: getStickyRight(ci),
+                                zIndex: 1,
+                                flex: `0 0 ${col.width}px`,
+                              }
                             : {}),
                       }}
                     >
