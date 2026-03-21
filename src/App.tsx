@@ -497,7 +497,7 @@ function App() {
 
       {/* Hero */}
       <section className="hero">
-        <div className="badge">v2.0.6 &middot; MIT License</div>
+        <div className="badge">v2.0.7 &middot; MIT License</div>
         <h1>
           The drag-and-drop table
           <br />
