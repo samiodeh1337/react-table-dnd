@@ -109,8 +109,7 @@ const OptionsExample = () => {
               key={col.id}
               id={col.id}
               index={i}
-              width={col.width}
-              style={isColLocked(i) ? thLocked : thNormal}
+              style={{ ...(isColLocked(i) ? thLocked : thNormal), width: col.width }}
             >
               {isColLocked(i) ? `🔒 ${col.title}` : col.title}
             </ColumnCell>

@@ -106,7 +106,6 @@ export default function VirtualExample() {
             key={col.id}
             id={col.id}
             index={i}
-            width={col.width}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -117,6 +116,7 @@ export default function VirtualExample() {
               color: '#94a3b8',
               background: '#1e1e24',
               borderBottom: '2px solid #2e2e36',
+              width: col.width,
             }}
           >
             {col.title}

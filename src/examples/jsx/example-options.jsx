@@ -102,7 +102,6 @@ export default function OptionsExample() {
             key={col.id}
             id={col.id}
             index={i}
-            width={col.width}
             style={{
               background: i < LOCKED_COLS ? '#1a1230' : '#141020',
               color: '#a78bfa',
@@ -111,6 +110,7 @@ export default function OptionsExample() {
               alignItems: 'center',
               padding: '0 12px',
               fontSize: 12,
+              width: col.width,
             }}
           >
             {i < LOCKED_COLS ? `🔒 ${col.title}` : col.title}

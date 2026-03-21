@@ -99,7 +99,6 @@ export default function DragHandleExample() {
             key={col.id}
             id={col.id}
             index={i}
-            width={col.width}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -110,6 +109,7 @@ export default function DragHandleExample() {
               background: '#1e1e24',
               fontSize: 13,
               fontWeight: 700,
+              width: col.width,
             }}
           >
             <DragHandle>

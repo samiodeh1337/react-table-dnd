@@ -89,7 +89,7 @@ export default function TailwindExample() {
             key={col.id}
             id={col.id}
             index={i}
-            width={col.width}
+            style={{ width: col.width }}
             className="flex items-center h-[42px] px-4 text-xs font-semibold
                        text-gray-400 uppercase tracking-wider bg-gray-900
                        border-b border-gray-700"
@@ -105,7 +105,6 @@ export default function TailwindExample() {
               <RowCell
                 key={col.id}
                 index={ci}
-                width={col.width}
                 className={`flex items-center h-10 px-4 text-sm text-gray-300
                            border-b border-gray-800
                            ${ri % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800'}`}

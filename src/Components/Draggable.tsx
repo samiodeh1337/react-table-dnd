@@ -25,6 +25,7 @@ const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, s
     [index, columnDragRange.end, columnDragRange.start, rowDragRange.end, rowDragRange.start, type],
   )
 
+  const outerRef = useRef<HTMLDivElement>(null)
   const innerRef = useRef<HTMLDivElement>(null)
 
   // opacity, zIndex, pointerEvents, and grabbing cursor are applied directly via DOM
@@ -39,13 +40,20 @@ const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, s
   )
 
   useEffect(() => {
-    if (innerRef.current && innerRef.current.querySelector('[data-drag-handle]')) {
+    if (!innerRef.current || !outerRef.current) return
+    const hasDragHandle = !!innerRef.current.querySelector('[data-drag-handle]')
+    if (hasDragHandle) {
       innerRef.current.style.cursor = 'auto'
+      // With a drag handle, only the handle should block touch — keep outer scrollable
+    } else if (!disableDrag) {
+      // No drag handle: whole cell is the drag target, block touch-scroll on it
+      outerRef.current.style.touchAction = 'none'
     }
   }, [children, disableDrag])
 
   return (
     <div
+      ref={outerRef}
       className="draggable"
       data-id={id}
       data-index={index}

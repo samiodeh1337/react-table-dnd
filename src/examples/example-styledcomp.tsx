@@ -77,7 +77,7 @@ const StyledCompExample = () => {
       <StyledTable options={options} onDragEnd={handleDragEnd}>
         <TableHeader>
           {cols.map((col, i) => (
-            <StyledCol key={col.id} id={col.id} index={i} width={col.width}>
+            <StyledCol key={col.id} id={col.id} index={i} style={{ width: col.width }}>
               {col.title}
             </StyledCol>
           ))}
@@ -88,7 +88,7 @@ const StyledCompExample = () => {
               {cols.map((col, ci) => {
                 const Cell = ri % 2 !== 0 ? StyledCellAlt : StyledCell
                 return (
-                  <Cell key={col.id} index={ci} width={col.width}>
+                  <Cell key={col.id} index={ci}>
                     {row[col.id]}
                   </Cell>
                 )
