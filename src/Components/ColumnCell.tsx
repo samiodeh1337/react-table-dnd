@@ -38,7 +38,7 @@ const ColumnCell: React.FC<ColumnCellProps> = memo(({ children, style, className
       <div
         className={`th ${className ?? ''}`}
         data-width={colCellWidth}
-        style={{ width: '100%', ...contentStyle }}
+        style={{ width: '100%', ...contentStyle, boxSizing: 'border-box' }}
       >
         {children}
       </div>

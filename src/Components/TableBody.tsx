@@ -1,12 +1,14 @@
 import React, {
   forwardRef,
   useEffect,
+  useLayoutEffect,
   useImperativeHandle,
   useMemo,
   useRef,
   type CSSProperties,
   type ReactNode,
 } from 'react'
+
 import { useTableStore, useTableDispatch } from './TableContainer/useTable'
 import useAutoScroll from '../hooks/useAutoScroll'
 
@@ -48,7 +50,7 @@ const TableBody = forwardRef<HTMLDivElement, TableBodyProps>(
       [isDragging, style],
     )
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       if (localRef.current) {
         const clientWidth = localRef.current.clientWidth
         const offsetWidth = localRef.current.offsetWidth

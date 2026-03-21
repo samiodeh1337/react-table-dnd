@@ -372,8 +372,8 @@ function BasicDemo() {
                 key={col.id}
                 id={col.id}
                 index={i}
-                width={col.width}
                 style={{
+                  width: col.width,
                   display: 'flex',
                   alignItems: 'center',
                   height: 40,
@@ -497,7 +497,7 @@ function App() {
 
       {/* Hero */}
       <section className="hero">
-        <div className="badge">v1.1.12 &middot; MIT License</div>
+        <div className="badge">v2.0.6 &middot; MIT License</div>
         <h1>
           The drag-and-drop table
           <br />
@@ -901,18 +901,6 @@ function App() {
               </tr>
               <tr>
                 <td>
-                  <code>width</code>
-                </td>
-                <td>
-                  <code>number</code>
-                </td>
-                <td>
-                  Width in pixels — sets both <code>width</code> and <code>flex-basis</code>.
-                  Defaults to 50.
-                </td>
-              </tr>
-              <tr>
-                <td>
                   <code>children</code>
                 </td>
                 <td>
@@ -1080,18 +1068,6 @@ function App() {
                 </td>
                 <td>
                   Column index — must match the corresponding <code>ColumnCell</code> index.
-                </td>
-              </tr>
-              <tr>
-                <td>
-                  <code>width</code>
-                </td>
-                <td>
-                  <code>number</code>
-                </td>
-                <td>
-                  Width in pixels — sets both <code>width</code> and <code>flex-basis</code>. Should
-                  match the corresponding <code>ColumnCell</code> width.
                 </td>
               </tr>
               <tr>

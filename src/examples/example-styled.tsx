@@ -640,7 +640,6 @@ const ShowcaseExample = () => {
                     <RowCell
                       key={col.id}
                       index={ci}
-                      width={col.width}
                       style={{
                         ...(colIsPinned ? tdPinnedStyle : tdStyle),
                         background: colIsPinned ? '#0a1120' : bg,

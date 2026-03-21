@@ -82,7 +82,7 @@ const TailwindExample = () => {
           {data.map((row, ri) => (
             <BodyRow key={row.id} id={row.id} index={ri}>
               {cols.map((col, ci) => (
-                <RowCell key={col.id} index={ci} width={col.width} style={tdStyle(ri)}>
+                <RowCell key={col.id} index={ci} style={tdStyle(ri)}>
                   {row[col.id]}
                 </RowCell>
               ))}

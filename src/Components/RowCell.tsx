@@ -3,7 +3,6 @@ import { useTableStore } from './TableContainer/useTable'
 
 interface RowCellProps {
   children?: React.ReactNode
-  width?: number
   index: number
   style?: React.CSSProperties
   className?: string
