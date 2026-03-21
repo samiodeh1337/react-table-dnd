@@ -4,6 +4,9 @@ import { useCallback, useRef } from 'react'
 import type { HookRefs, DragType } from './types'
 
 const TRANSITION_STYLE = 'transform 450ms cubic-bezier(0.2, 0, 0, 1)'
+const PH_TRANSITION_STYLE = 'transform 150ms cubic-bezier(0.2, 0, 0, 1)'
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 export type IndexMap = Map<number, { outer: HTMLElement; inner: HTMLElement }>
 
@@ -48,13 +51,23 @@ const useShiftTransforms = (
       const size = draggedSizeRef.current
       const rect = targetEl.getBoundingClientRect()
       const tableRect = refs.tableRef?.current?.getBoundingClientRect()
+      const body = refs.bodyRef?.current
+      const scrollbarW = body ? body.offsetWidth - body.clientWidth : 0
       const forward = (sourceIdx ?? 0) < (targetIdx ?? 0)
 
+      const isFirstShow = ph.style.display === 'none'
+      const prevTop = parseFloat(ph.style.top) || 0
+      const prevLeft = parseFloat(ph.style.left) || 0
+
+      // Reset before writing new position
+      ph.style.transition = ''
+      ph.style.transform = ''
       ph.style.display = 'block'
+
       if (dtype === 'row') {
         ph.style.top = `${forward ? rect.top + rect.height - size.height : rect.top}px`
         ph.style.left = `${tableRect?.left ?? rect.left}px`
-        ph.style.width = `${tableRect?.width ?? rect.width}px`
+        ph.style.width = `${(tableRect?.width ?? rect.width) - scrollbarW}px`
         ph.style.height = `${size.height}px`
       } else {
         ph.style.top = `${tableRect?.top ?? rect.top}px`
@@ -62,8 +75,19 @@ const useShiftTransforms = (
         ph.style.width = `${size.width}px`
         ph.style.height = `${tableRect?.height ?? rect.height}px`
       }
+
+      if (!isFirstShow && !prefersReducedMotion()) {
+        const deltaX = prevLeft - (parseFloat(ph.style.left) || 0)
+        const deltaY = prevTop - (parseFloat(ph.style.top) || 0)
+        if (deltaX !== 0 || deltaY !== 0) {
+          ph.style.transform = `translate(${deltaX}px, ${deltaY}px)`
+          void ph.offsetHeight // flush so browser sees the inverted position
+          ph.style.transition = PH_TRANSITION_STYLE
+          ph.style.transform = 'translate(0, 0)'
+        }
+      }
     },
-    [refs.placeholderRef, refs.tableRef],
+    [refs.placeholderRef, refs.tableRef, refs.bodyRef],
   )
 
   const applyShiftTransforms = useCallback(
@@ -95,7 +119,8 @@ const useShiftTransforms = (
           if (idx > sourceIndex && idx <= targetIndex) shift = `translate${axis}(-${amount}px)`
           else if (idx < sourceIndex && idx >= targetIndex) shift = `translate${axis}(${amount}px)`
           inner.style.transform = shift
-          inner.style.transition = idx === sourceIndex ? 'none' : TRANSITION_STYLE
+          inner.style.transition =
+            idx === sourceIndex || prefersReducedMotion() ? 'none' : TRANSITION_STYLE
           if (shift) shiftedElementsRef.current.add(inner)
           if (idx === targetIndex) outer.setAttribute('data-drop-target', 'true')
           else outer.removeAttribute('data-drop-target')
@@ -126,7 +151,8 @@ const useShiftTransforms = (
           for (const cell of cells) {
             if (cache.get(cell) === shift) continue
             cell.style.transform = shift
-            if (firstPass) cell.style.transition = TRANSITION_STYLE
+            if (firstPass)
+              cell.style.transition = prefersReducedMotion() ? 'none' : TRANSITION_STYLE
             cache.set(cell, shift)
             if (shift) shiftedCellsRef.current.add(cell)
           }
