@@ -18,6 +18,7 @@ export default defineConfig({
       entry: resolve(__dirname, 'src/Components/index.ts'),
       formats: ['es', 'cjs'],
       fileName: (format) => `index.${format}.js`,
+      cssFileName: 'react-table-dnd',
     },
     rollupOptions: {
       external: ['react', 'react-dom', 'react/jsx-runtime', 'styled-components', 'classnames'],

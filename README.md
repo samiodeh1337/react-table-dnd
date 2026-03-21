@@ -51,13 +51,13 @@
 npm install react-table-dnd
 ```
 
-Then import the required CSS once in your app (e.g. `main.tsx` / `index.js`):
+> Requires `react` and `react-dom` >= 18.0.0
+
+Then import the styles once in your app entry (e.g. `main.tsx`):
 
 ```js
-import 'react-table-dnd/dist/react-table-dnd.css'
+import 'react-table-dnd/styles'
 ```
-
-> Requires `react` and `react-dom` >= 18.0.0
 
 ## Quick Start
 
