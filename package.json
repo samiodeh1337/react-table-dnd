@@ -13,7 +13,8 @@
       "require": "./dist/index.cjs.js",
       "types": "./dist/index.d.ts"
     },
-    "./styles": "./dist/react-table-dnd.css"
+    "./styles": "./dist/react-table-dnd.css",
+    "./dist/react-table-dnd.css": "./dist/react-table-dnd.css"
   },
   "sideEffects": [
     "**/*.css"

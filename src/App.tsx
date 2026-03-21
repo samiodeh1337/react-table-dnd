@@ -730,6 +730,13 @@ function App() {
           code={`# npm\nnpm install react-table-dnd\n\n# yarn\nyarn add react-table-dnd\n\n# pnpm\npnpm add react-table-dnd`}
         />
 
+        <h3>Styles</h3>
+        <p>
+          Import the styles once in your app entry (e.g.{' '}
+          <code className="inline-code">main.tsx</code>):
+        </p>
+        <CodeBlock lang="jsx" code={`import 'react-table-dnd/styles'`} />
+
         <h3>Peer Dependencies</h3>
         <p>
           Requires <code className="inline-code">react</code> and{' '}
