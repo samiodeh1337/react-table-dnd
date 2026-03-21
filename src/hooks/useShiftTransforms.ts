@@ -53,6 +53,7 @@ const useShiftTransforms = (
       const tableRect = refs.tableRef?.current?.getBoundingClientRect()
       const body = refs.bodyRef?.current
       const scrollbarW = body ? body.offsetWidth - body.clientWidth : 0
+      const scrollbarH = body ? body.offsetHeight - body.clientHeight : 0
       const forward = (sourceIdx ?? 0) < (targetIdx ?? 0)
 
       const isFirstShow = ph.style.display === 'none'
@@ -73,7 +74,7 @@ const useShiftTransforms = (
         ph.style.top = `${tableRect?.top ?? rect.top}px`
         ph.style.left = `${forward ? rect.left + rect.width - size.width : rect.left}px`
         ph.style.width = `${size.width}px`
-        ph.style.height = `${tableRect?.height ?? rect.height}px`
+        ph.style.height = `${(tableRect?.height ?? rect.height) - scrollbarH}px`
       }
 
       if (!isFirstShow && !prefersReducedMotion()) {
