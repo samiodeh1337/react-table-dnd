@@ -15,9 +15,8 @@ const useAutoScroll = (refs: HookRefs) => {
 
   const isAutoScrollingHorizontal = useRef(false)
   const isAutoScrollingVertical = useRef(false)
-  const decaySpeed = useRef(0)
   const animationFrameRef = useRef<number | null>(null)
-
+  const decaySpeed = useRef(0)
   // Pointer position ref — updated externally by drag handler
   const pointerRef = useRef({ x: 0, y: 0 })
 

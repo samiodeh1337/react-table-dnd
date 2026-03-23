@@ -9,14 +9,21 @@
  *  - Finalize the drop with a snap animation, then call onDragEnd
  *  - Cancel on Escape key
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, type Dispatch } from 'react'
-import { flushSync } from 'react-dom'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  startTransition,
+  type Dispatch,
+} from 'react'
 import useAutoScroll from './useAutoScroll'
 import useLongPress from './useLongPress'
 import useShiftTransforms from './useShiftTransforms'
 import useIndexMaps from './useIndexMaps'
 import useDropTarget from './useDropTarget'
 import { isScrollbarClick } from '../Components/utils'
+import { dragShiftState } from './dragShiftState'
 import type {
   HookRefs,
   DraggedState,
@@ -29,7 +36,7 @@ import type {
 
 const DROP_SNAP_MS = 200
 const EDGE_SCROLL_ZONE = 30
-const EDGE_SCROLL_SPEED = 5
+const EDGE_SCROLL_SPEED = 10
 
 function findDraggable(target: EventTarget): { element: HTMLElement; foundHandle: boolean } | null {
   let el = target as HTMLElement | null
@@ -79,6 +86,9 @@ const useDragContextEvents = (
   const cloneBodyElRef = useRef<HTMLElement | null>(null)
   const draggedInnerElRef = useRef<HTMLElement | null>(null)
   const draggedColCellsRef = useRef<HTMLElement[]>([])
+  // Deduplicated rAF for applyShiftTransforms — only one pending at a time.
+  // Always reads targetIndexRef.current at fire time, never a stale closure value.
+  const shiftRafRef = useRef<number | null>(null)
 
   const beginDrag = useCallback(
     (
@@ -221,6 +231,14 @@ const useDragContextEvents = (
         }
       }
 
+      dragShiftState.active = true
+      dragShiftState.autoScrolling = false
+      dragShiftState.dragType = dtype ?? null
+      dragShiftState.sourceIndex = sourceIndex
+      dragShiftState.targetIndex = sourceIndex
+      dragShiftState.height = itemRect.height
+      dragShiftState.width = itemRect.width
+
       dispatch({
         type: 'dragStart',
         value: {
@@ -276,6 +294,12 @@ const useDragContextEvents = (
       const cloneEl = refs.cloneRef?.current
       if (cloneEl) cloneEl.style.visibility = 'hidden'
 
+      // Clear shift transforms FIRST — before restoring source opacity.
+      // If opacity is restored before shifts are cleared, the source element
+      // briefly reappears at its natural position while a shifted row occupies
+      // the same visual slot, producing the "2 elements overlapping" glitch.
+      clearShiftTransforms()
+
       if (draggedInnerElRef.current) {
         draggedInnerElRef.current.style.opacity = ''
         draggedInnerElRef.current.style.pointerEvents = ''
@@ -292,19 +316,29 @@ const useDragContextEvents = (
       const tableEl = refs.tableRef?.current
       if (tableEl) tableEl.style.touchAction = ''
 
-      flushSync(() => {
-        if (
-          onDragEnd &&
-          finalSource !== null &&
-          finalTarget !== null &&
-          (finalDragType === 'row' || finalDragType === 'column')
-        ) {
-          onDragEnd({ sourceIndex: finalSource, targetIndex: finalTarget, dragType: finalDragType })
-        }
+      // Set active=false before dispatching so any Draggable useLayoutEffect
+      // that fires during the re-render sees drag as finished and exits early.
+      dragShiftState.active = false
+
+      // Call onDragEnd SYNCHRONOUSLY (outside startTransition) so the user's
+      // setData commits as an urgent update. If it were inside startTransition,
+      // VirtualBody's scroll handler could schedule its own startTransition
+      // (setSlotRows) that commits first — rendering slots with the OLD data,
+      // causing cells to briefly show stale values (e.g. wrong company number).
+      if (
+        onDragEnd &&
+        finalSource !== null &&
+        finalTarget !== null &&
+        (finalDragType === 'row' || finalDragType === 'column')
+      ) {
+        onDragEnd({ sourceIndex: finalSource, targetIndex: finalTarget, dragType: finalDragType })
+      }
+
+      // Defer internal state cleanup (isDragging:false) — it triggers a large
+      // re-render of all table components but doesn't affect data correctness.
+      startTransition(() => {
         dispatch({ type: 'dragEnd', value: { targetIndex: finalTarget, sourceIndex: finalSource } })
       })
-
-      clearShiftTransforms()
 
       const body = refs.bodyRef?.current
       if (body) {
@@ -339,6 +373,10 @@ const useDragContextEvents = (
     cachedItemsRef.current = null
     cachedContainerRef.current = null
     stopAutoScroll()
+    if (shiftRafRef.current !== null) {
+      cancelAnimationFrame(shiftRafRef.current)
+      shiftRafRef.current = null
+    }
 
     dragTypeRef.current = null
     sourceIndexRef.current = null
@@ -420,6 +458,53 @@ const useDragContextEvents = (
 
       const dtype = dragTypeRef.current || dragType
 
+      // ── Virtual auto-scroll handling ────────────────────────────────────────
+      // During auto-scroll: only update clone position (done above), skip all
+      // index/drop resolution since DOM positions are stale.
+      // When auto-scroll stops (either naturally via the loop's pointer check,
+      // or explicitly via stopAutoScroll), wait one rAF for React to commit
+      // recycled slot content, then rebuild maps and recompute drop target.
+      if (isVirtualRef.current) {
+        const stillScrolling = isAutoScrollingVertical.current || isAutoScrollingHorizontal.current
+        if (stillScrolling) {
+          dragShiftState.autoScrolling = true
+          return
+        }
+        if (dragShiftState.autoScrolling) {
+          // Auto-scroll just stopped — rebuild maps after React commits new slots
+          dragShiftState.autoScrolling = false
+          mapStaleRef.current = true
+          requestAnimationFrame(() => {
+            const c = refs.bodyRef?.current
+            if (!c || dragEndFiredRef.current) return
+            const dt = dragTypeRef.current
+            if (dt === 'row') {
+              indexMaps.rebuildRowMap(c)
+            } else {
+              indexMaps.rebuildColumnMaps(c, refs.headerRef?.current ?? null)
+            }
+            cachedItemsRef.current = null
+            const freshRect = c.getBoundingClientRect()
+            cachedContainerRef.current = freshRect
+            const freshDropIndex = resolveDropIndex(
+              pointerRef.current.x,
+              pointerRef.current.y,
+              dt,
+              freshRect,
+              c.scrollTop,
+              initialRef.current,
+              draggedSizeRef.current,
+              sourceIndexRef.current ?? 0,
+            )
+            targetIndexRef.current = freshDropIndex
+            prevTargetIndexRef.current = null
+            dragShiftState.targetIndex = freshDropIndex ?? sourceIndexRef.current ?? 0
+            applyShiftTransforms(sourceIndexRef.current, freshDropIndex, dt)
+          })
+          return // skip this frame — data is stale until rAF fires
+        }
+      }
+
       if (isVirtualRef.current) {
         indexMaps.checkStaleness()
       }
@@ -443,35 +528,14 @@ const useDragContextEvents = (
       if (dtype === 'row') {
         if (clientY < rect.top + EDGE_SCROLL_ZONE) {
           startAutoScroll(-EDGE_SCROLL_SPEED, container, 'vertical')
+          if (isVirtualRef.current) dragShiftState.autoScrolling = true
           mapStaleRef.current = true
         } else if (clientY > rect.bottom - EDGE_SCROLL_ZONE) {
           startAutoScroll(EDGE_SCROLL_SPEED, container, 'vertical')
+          if (isVirtualRef.current) dragShiftState.autoScrolling = true
           mapStaleRef.current = true
         } else {
-          const wasScrollingV = isAutoScrollingVertical.current
           stopAutoScroll()
-          if (wasScrollingV) {
-            requestAnimationFrame(() => {
-              const c = refs.bodyRef?.current
-              if (!c) return
-              if (isVirtualRef.current) indexMaps.rebuildRowMap(c)
-              cachedItemsRef.current = null
-              const freshRect = c.getBoundingClientRect()
-              cachedContainerRef.current = freshRect
-              const freshDropIndex = resolveDropIndex(
-                pointerRef.current.x,
-                pointerRef.current.y,
-                'row',
-                freshRect,
-                c.scrollTop,
-                initialRef.current,
-                draggedSizeRef.current,
-              )
-              targetIndexRef.current = freshDropIndex
-              prevTargetIndexRef.current = null
-              applyShiftTransforms(sourceIndexRef.current, freshDropIndex, 'row')
-            })
-          }
         }
       } else {
         if (clientX < rect.left + EDGE_SCROLL_ZONE) {
@@ -481,35 +545,7 @@ const useDragContextEvents = (
           startAutoScroll(EDGE_SCROLL_SPEED, container, 'horizontal')
           mapStaleRef.current = true
         } else {
-          const wasScrollingH = isAutoScrollingHorizontal.current
           stopAutoScroll()
-          if (wasScrollingH) {
-            // React virtualizer commits new virtual columns asynchronously after scroll.
-            // Wait one rAF for the commit, then: rebuild maps, recompute drop zone from
-            // fresh column rects, and re-apply shift transforms.
-            requestAnimationFrame(() => {
-              const c = refs.bodyRef?.current
-              if (!c) return
-              if (isVirtualRef.current)
-                indexMaps.rebuildColumnMaps(c, refs.headerRef?.current ?? null)
-              // Clear cached positions so resolveDropIndex re-reads from the updated DOM
-              cachedItemsRef.current = null
-              const freshRect = c.getBoundingClientRect()
-              cachedContainerRef.current = freshRect
-              const freshDropIndex = resolveDropIndex(
-                pointerRef.current.x,
-                pointerRef.current.y,
-                'column',
-                freshRect,
-                c.scrollTop,
-                initialRef.current,
-                draggedSizeRef.current,
-              )
-              targetIndexRef.current = freshDropIndex
-              prevTargetIndexRef.current = null
-              applyShiftTransforms(sourceIndexRef.current, freshDropIndex, 'column')
-            })
-          }
         }
       }
 
@@ -521,10 +557,23 @@ const useDragContextEvents = (
         bodyScrollTop,
         initial,
         draggedSizeRef.current,
+        sourceIndexRef.current ?? 0,
       )
       if (dropIndex !== targetIndexRef.current) {
         targetIndexRef.current = dropIndex
-        requestAnimationFrame(() => applyShiftTransforms(sourceIndexRef.current, dropIndex, dtype))
+        dragShiftState.targetIndex = dropIndex ?? 0
+        // Deduplicated: if a shift rAF is already pending it will pick up the
+        // latest targetIndexRef.current when it fires, so no new one is needed.
+        if (shiftRafRef.current === null) {
+          shiftRafRef.current = requestAnimationFrame(() => {
+            shiftRafRef.current = null
+            applyShiftTransforms(
+              sourceIndexRef.current,
+              targetIndexRef.current,
+              dragTypeRef.current,
+            )
+          })
+        }
       }
     },
     [
@@ -551,9 +600,16 @@ const useDragContextEvents = (
   dragMoveRef.current = dragMove
 
   const dragCancel = useCallback(() => {
+    dragShiftState.active = false
+    dragShiftState.autoScrolling = false
+
     cancelLongPress()
     cachedItemsRef.current = null
     cachedContainerRef.current = null
+    if (shiftRafRef.current !== null) {
+      cancelAnimationFrame(shiftRafRef.current)
+      shiftRafRef.current = null
+    }
 
     const cloneEl = refs.cloneRef?.current
     if (cloneEl) cloneEl.style.visibility = 'hidden'

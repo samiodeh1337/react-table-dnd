@@ -99,21 +99,20 @@ const useIndexMaps = (refs: HookRefs): IndexMapsResult => {
     [buildColumnMap, buildCellMap],
   )
 
-  // checks first entry only — good enough for virtual table node swaps
+  // Validates ALL map entries — virtual slots can recycle any subset, not just the first
   const checkStaleness = useCallback(() => {
     if (mapStaleRef.current) return
 
-    if (rowIndexMapRef.current.size > 0) {
-      const firstEntry = rowIndexMapRef.current.values().next().value
-      if (firstEntry && !firstEntry.outer.isConnected) {
+    for (const [idx, entry] of rowIndexMapRef.current) {
+      if (!entry.outer.isConnected || +(entry.outer.dataset.index ?? -1) !== idx) {
         mapStaleRef.current = true
         return
       }
     }
-    if (colIndexMapRef.current.size > 0) {
-      const firstEntry = colIndexMapRef.current.values().next().value
-      if (firstEntry && !firstEntry.outer.isConnected) {
+    for (const [idx, entry] of colIndexMapRef.current) {
+      if (!entry.outer.isConnected || +(entry.outer.dataset.index ?? -1) !== idx) {
         mapStaleRef.current = true
+        return
       }
     }
   }, [])

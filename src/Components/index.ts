@@ -5,8 +5,18 @@ import TableBody from './TableBody'
 import BodyRow from './BodyRow'
 import RowCell from './RowCell'
 import DragHandle from './DragHandle'
+import VirtualBody from './VirtualBody'
 export { useTable, useTableStore, useTableDispatch } from './TableContainer/useTable'
-export { TableContainer, TableHeader, ColumnCell, TableBody, BodyRow, RowCell, DragHandle }
+export {
+  TableContainer,
+  TableHeader,
+  ColumnCell,
+  TableBody,
+  BodyRow,
+  RowCell,
+  DragHandle,
+  VirtualBody,
+}
 
 // Re-export public types for consumers
 export type { DragEndResult, DragRange, DragType } from '../hooks/types'

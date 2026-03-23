@@ -110,12 +110,15 @@ const useShiftTransforms = (
       let targetEl: HTMLElement | null = null
       const map = dtype === 'row' ? rowIndexMapRef.current : colIndexMapRef.current
       const entry = map.get(targetIndex)
-      if (entry) targetEl = entry.outer
+      // Validate: virtual recycling may have reassigned this element to a different row
+      if (entry && +(entry.outer.dataset.index ?? -1) === targetIndex) targetEl = entry.outer
 
       positionPlaceholder(targetEl, sourceIndex, targetIndex, dtype)
 
       const applyShift = (idxMap: IndexMap, axis: 'Y' | 'X', amount: number) => {
         const doEntry = (idx: number, outer: HTMLElement, inner: HTMLElement) => {
+          // Guard: virtual recycling may have reassigned this element to a different row
+          if (+(outer.dataset.index ?? -1) !== idx) return
           let shift = ''
           if (idx > sourceIndex && idx <= targetIndex) shift = `translate${axis}(-${amount}px)`
           else if (idx < sourceIndex && idx >= targetIndex) shift = `translate${axis}(${amount}px)`
@@ -185,6 +188,23 @@ const useShiftTransforms = (
     }
     shiftedElementsRef.current.clear()
 
+    // Also clear transforms written by Draggable.useLayoutEffect — those are NOT
+    // tracked in shiftedElementsRef (virtual slot recycling writes directly).
+    // For virtual tables (~20 slots) this is trivially fast.
+    const body = refs.bodyRef?.current
+    if (body) {
+      const draggables = body.querySelectorAll('.draggable')
+      for (let i = 0; i < draggables.length; i++) {
+        const inner = draggables[i].firstElementChild as HTMLElement | null
+        if (inner && (inner.style.transform || inner.style.opacity === '0')) {
+          inner.style.transition = 'none'
+          inner.style.transform = ''
+          inner.style.opacity = ''
+        }
+        ;(draggables[i] as HTMLElement).removeAttribute('data-drop-target')
+      }
+    }
+
     for (const cell of shiftedCellsRef.current) {
       cell.style.transition = 'none'
       cell.style.transform = ''
@@ -193,7 +213,7 @@ const useShiftTransforms = (
     cellShiftCache.current.clear()
 
     prevTargetIndexRef.current = null
-  }, [refs.placeholderRef])
+  }, [refs.placeholderRef, refs.bodyRef])
 
   return {
     applyShiftTransforms,

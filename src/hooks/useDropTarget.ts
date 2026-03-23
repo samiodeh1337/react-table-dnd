@@ -14,6 +14,7 @@ interface DropTargetResult {
     bodyScrollTop: number,
     initial: Point,
     size: { width: number; height: number },
+    sourceIndex: number,
   ) => number
   cachedItemsRef: React.RefObject<RowItem[] | ColumnItem[] | null> // null = invalidated
   cachedContainerRef: React.RefObject<DOMRect | null>
@@ -51,6 +52,9 @@ const useDropTarget = (refs: HookRefs, options: Options): DropTargetResult => {
         (item) => (!start || +item.index >= start) && (!end || +item.index <= end),
       )
     }
+    // Virtual slots are in circular-buffer order, not visual order.
+    // Binary search requires ascending itemTop.
+    items.sort((a, b) => a.itemTop - b.itemTop)
     return items
   }, [refs.bodyRef, options.rowDragRange])
 
@@ -78,6 +82,7 @@ const useDropTarget = (refs: HookRefs, options: Options): DropTargetResult => {
         return (start === undefined || idx >= start) && (end === undefined || idx <= end)
       })
     }
+    items.sort((a, b) => a.itemLeft - b.itemLeft)
     return items
   }, [refs.headerRef, options.columnDragRange])
   /* eslint-enable react-hooks/preserve-manual-memoization */
@@ -91,8 +96,10 @@ const useDropTarget = (refs: HookRefs, options: Options): DropTargetResult => {
       bodyScrollTop: number,
       initial: Point,
       size: { width: number; height: number },
+      sourceIndex: number,
     ): number => {
       let items: RowItem[] | ColumnItem[] | null
+      let raw: number
       if (dtype === 'row') {
         items = cachedItemsRef.current as RowItem[] | null
         if (!items) {
@@ -102,7 +109,11 @@ const useDropTarget = (refs: HookRefs, options: Options): DropTargetResult => {
         if (items && items.length > 0) {
           // use clone center, not raw pointer — feels more natural
           const cloneCenterY = clientY - initial.y + size.height / 2
-          return binarySearchDropIndex(cloneCenterY - rect.top + bodyScrollTop, items)
+          raw = binarySearchDropIndex(cloneCenterY - rect.top + bodyScrollTop, items)
+          // binarySearch returns an "insert-before" position in the ORIGINAL array.
+          // arrayMove removes the source first, shifting every slot after it down by 1.
+          // For forward drags (raw > source) we compensate; backward drags are unaffected.
+          return raw > sourceIndex ? raw - 1 : raw
         }
       } else {
         items = cachedItemsRef.current as ColumnItem[] | null
@@ -112,10 +123,11 @@ const useDropTarget = (refs: HookRefs, options: Options): DropTargetResult => {
         }
         if (items && items.length > 0) {
           const cloneCenterX = clientX - initial.x + size.width / 2
-          return binarySearchDropIndexHeader(cloneCenterX, items)
+          raw = binarySearchDropIndexHeader(cloneCenterX, items)
+          return raw > sourceIndex ? raw - 1 : raw
         }
       }
-      return 0
+      return sourceIndex
     },
     [computeRowItems, computeColumnItems],
   )

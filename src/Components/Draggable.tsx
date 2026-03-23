@@ -1,8 +1,9 @@
-import React, { useMemo, memo, useRef, useEffect } from 'react'
+import React, { useMemo, memo, useRef, useEffect, useLayoutEffect } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { useTableStore } from './TableContainer/useTable'
 import { isIndexOutOfRange } from './utils'
 import type { DragType } from '../hooks/types'
+import { dragShiftState } from '../hooks/dragShiftState'
 
 export interface DraggableProps {
   children: ReactNode
@@ -50,6 +51,63 @@ const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, s
       outerRef.current.style.touchAction = 'none'
     }
   }, [children, disableDrag])
+
+  // Virtual-table safety net: when the virtualizer mounts or re-renders a row,
+  // this fires synchronously after React commits, before the browser paints.
+  // Reads the cheap dragShiftState singleton — no layout reads, no races.
+  useLayoutEffect(() => {
+    const inner = innerRef.current
+    if (!inner) return
+
+    // When drag is inactive, clean up any stale inline styles from a previous drag.
+    // Virtual slots persist across drags — without this, recycled slots could retain
+    // transforms or opacity:'0' from a finished drag.
+    if (!dragShiftState.active) {
+      if (inner.style.transform || inner.style.opacity === '0') {
+        inner.style.transform = ''
+        inner.style.transition = ''
+        inner.style.opacity = ''
+      }
+      return
+    }
+
+    if (dragShiftState.dragType !== type) return
+
+    const { sourceIndex: src } = dragShiftState
+
+    // ALWAYS manage opacity, even during auto-scroll:
+    // - Non-source slots that inherited opacity:'0' from a recycled source must be restored
+    // - New slots showing the source index must be hidden
+    if (index !== src && inner.style.opacity === '0') {
+      inner.style.opacity = ''
+    } else if (index === src && inner.style.opacity !== '0') {
+      inner.style.opacity = '0'
+    }
+
+    // Skip shift transforms during auto-scroll — positions are stale and will be
+    // recomputed when scroll stops. But clear any existing shift so recycled slots
+    // don't show transforms from their previous row.
+    if (dragShiftState.autoScrolling) {
+      if (inner.style.transform) {
+        inner.style.transition = 'none'
+        inner.style.transform = ''
+      }
+      return
+    }
+
+    const { targetIndex: tgt, height, width } = dragShiftState
+    let shift = ''
+    if (type === 'row') {
+      if (index > src && index <= tgt) shift = `translateY(-${height}px)`
+      else if (index < src && index >= tgt) shift = `translateY(${height}px)`
+    } else {
+      if (index > src && index <= tgt) shift = `translateX(-${width}px)`
+      else if (index < src && index >= tgt) shift = `translateX(${width}px)`
+    }
+    if (inner.style.transform === shift) return
+    inner.style.transition = 'none'
+    inner.style.transform = shift
+  })
 
   return (
     <div

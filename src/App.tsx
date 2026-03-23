@@ -278,8 +278,10 @@ function CodeBlock({ code, lang = 'tsx', tsxCode, jsxCode }: CodeBlockProps) {
 
   useEffect(() => {
     if (!ref.current) return
-    ref.current.removeAttribute('data-highlighted')
-    hljs.highlightElement(ref.current)
+    const el = ref.current
+    el.removeAttribute('data-highlighted')
+    const id = setTimeout(() => hljs.highlightElement(el), 0)
+    return () => clearTimeout(id)
   }, [displayCode, displayLang])
 
   const copy = () => {

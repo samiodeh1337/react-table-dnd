@@ -20,7 +20,12 @@ export const binarySearchDropIndex = (mouseY: number, items: RowItem[]) => {
       low = mid + 1
     }
   }
-  return +items[low].index
+  // Exhausted — check the surviving candidate
+  const last = items[low]
+  if (last.itemTop <= relativeMouseY && relativeMouseY <= last.itemBottom) {
+    return relativeMouseY < last.itemTop + last.height / 2 ? +last.index : +last.index + 1
+  }
+  return relativeMouseY < last.itemTop ? +last.index : +last.index + 1
 }
 
 export const binarySearchDropIndexHeader = (mouseX: number, items: ColumnItem[]) => {
@@ -35,7 +40,6 @@ export const binarySearchDropIndexHeader = (mouseX: number, items: ColumnItem[])
     const item = items[mid]
 
     if (item.itemLeft <= relativeMouseX && relativeMouseX <= item.itemRight) {
-      // Check if the mouse is in the top or bottom half of the item
       return relativeMouseX < item.itemLeft + item.width / 2 ? +item.index : +item.index + 1
     } else if (relativeMouseX < item.itemLeft) {
       high = mid - 1
@@ -43,7 +47,11 @@ export const binarySearchDropIndexHeader = (mouseX: number, items: ColumnItem[])
       low = mid + 1
     }
   }
-  return +items[low].index
+  const last = items[low]
+  if (last.itemLeft <= relativeMouseX && relativeMouseX <= last.itemRight) {
+    return relativeMouseX < last.itemLeft + last.width / 2 ? +last.index : +last.index + 1
+  }
+  return relativeMouseX < last.itemLeft ? +last.index : +last.index + 1
 }
 
 export function isScrollbarClick(clientX: number, clientY: number, target: HTMLElement): boolean {
