@@ -8,16 +8,23 @@
   touch-action: none;
 }
 
+/* prevent native mobile long-press text selection on draggable elements */
+[data-flexitable-root] [data-id] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 /* structural reset: targets only the library's own elements,
    never bleeds into consumer cell content */
 [data-flexitable-root],
-[data-flexitable-root] .table,
-[data-flexitable-root] .header,
-[data-flexitable-root] .thead,
-[data-flexitable-root] .body,
-[data-flexitable-root] .ibody,
-[data-flexitable-root] .draggable,
-[data-flexitable-root] .tr {
+[data-flexitable-root] [data-rtdnd='table'],
+[data-flexitable-root] [data-rtdnd='header'],
+[data-flexitable-root] [data-rtdnd='thead'],
+[data-flexitable-root] [data-rtdnd='body'],
+[data-flexitable-root] [data-rtdnd='ibody'],
+[data-flexitable-root] [data-rtdnd='draggable'],
+[data-flexitable-root] [data-rtdnd='tr'] {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -29,8 +36,8 @@
 
 /* user-facing cells: box-sizing only — padding/margin intentionally left
    unset so consumers can style freely via className and style props */
-[data-flexitable-root] .th,
-[data-flexitable-root] .td {
+[data-flexitable-root] [data-rtdnd='th'],
+[data-flexitable-root] [data-rtdnd='td'] {
   box-sizing: border-box;
 }
 
@@ -45,17 +52,17 @@
 }
 
 /* hide webkit scrollbar on header scroll container (scrollLeft synced via JS) */
-[data-flexitable-root] .thead::-webkit-scrollbar {
+[data-flexitable-root] [data-rtdnd='thead']::-webkit-scrollbar {
   display: none;
 }
 
 /* hide webkit scrollbar on virtual column drag body strip */
-[data-flexitable-root] .clone-body-strip::-webkit-scrollbar {
+[data-flexitable-root] [data-rtdnd='clone-body-strip']::-webkit-scrollbar {
   display: none;
 }
 
 /* drag handle: only the handle shows grab cursor when not actively dragging */
-[data-flexitable-root]:not(.is-dragging) .draggable:has([data-drag-handle]) > div {
+[data-flexitable-root]:not(.is-dragging) [data-rtdnd='draggable']:has([data-drag-handle]) > div {
   cursor: default !important;
 }
 

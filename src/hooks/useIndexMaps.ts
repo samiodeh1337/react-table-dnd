@@ -29,7 +29,7 @@ const useIndexMaps = (refs: HookRefs): IndexMapsResult => {
 
   const buildRowMap = useCallback((body: HTMLElement) => {
     rowIndexMapRef.current.clear()
-    const rows = body.querySelectorAll('.draggable[data-type="row"]')
+    const rows = body.querySelectorAll('[data-rtdnd="draggable"][data-type="row"]')
     for (let i = 0; i < rows.length; i++) {
       const el = rows[i] as HTMLElement
       const idx = el.dataset.index
@@ -41,7 +41,7 @@ const useIndexMaps = (refs: HookRefs): IndexMapsResult => {
 
   const buildColumnMap = useCallback((header: HTMLElement) => {
     colIndexMapRef.current.clear()
-    const cols = header.querySelectorAll('.draggable[data-type="column"]')
+    const cols = header.querySelectorAll('[data-rtdnd="draggable"][data-type="column"]')
     for (let i = 0; i < cols.length; i++) {
       const el = cols[i] as HTMLElement
       const idx = el.dataset.index
@@ -53,7 +53,7 @@ const useIndexMaps = (refs: HookRefs): IndexMapsResult => {
 
   const buildCellMap = useCallback((body: HTMLElement) => {
     cellIndexMapRef.current.clear()
-    const cells = body.querySelectorAll('.td[data-col-index]')
+    const cells = body.querySelectorAll('[data-rtdnd="td"][data-col-index]')
     for (let i = 0; i < cells.length; i++) {
       const cell = cells[i] as HTMLElement
       const idx = +cell.dataset.colIndex!

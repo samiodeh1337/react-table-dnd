@@ -240,7 +240,8 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
             onMouseDown={dragStart}
             onTouchStart={touchStart}
             style={{ ...TABLE_DEFAULT_STYLES, ...style }}
-            className={`table ${className ?? ''}`}
+            data-rtdnd="table"
+            className={className}
           >
             {children}
           </div>

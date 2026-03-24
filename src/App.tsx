@@ -25,6 +25,8 @@ import {
 } from './Components'
 import './docs.css'
 
+declare const __LIB_VERSION__: string
+
 // Raw source imports for code preview (TSX — from real example files)
 import srcFixedTsx from './examples/example-fixed.tsx?raw'
 import srcFlexTsx from './examples/example-flex.tsx?raw'
@@ -497,7 +499,7 @@ function App() {
 
       {/* Hero */}
       <section className="hero">
-        <div className="badge">v2.0.8 &middot; MIT License</div>
+        <div className="badge">v{__LIB_VERSION__} &middot; MIT License</div>
         <h1>
           The drag-and-drop table
           <br />

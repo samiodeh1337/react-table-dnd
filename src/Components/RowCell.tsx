@@ -32,7 +32,7 @@ const RowCell: React.FC<RowCellProps> = memo(({ children, style, className, ...p
   )
 
   return (
-    <div className={`td ${className ?? ''}`} style={styles} data-col-index={index}>
+    <div data-rtdnd="td" className={className} style={styles} data-col-index={index}>
       {children}
     </div>
   )

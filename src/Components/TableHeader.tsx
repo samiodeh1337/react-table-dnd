@@ -64,7 +64,9 @@ const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(
     useLayoutEffect(() => {
       const el = getRefCurrent(resolvedRef)
       if (el) {
-        const widths: number[] = Array.from(el.querySelectorAll<HTMLElement>('.th')).map((th) => {
+        const widths: number[] = Array.from(
+          el.querySelectorAll<HTMLElement>('[data-rtdnd="th"]'),
+        ).map((th) => {
           const w = th.getAttribute('data-width')
           return w ? parseInt(w, 10) : 0
         })
@@ -75,23 +77,23 @@ const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(
     useLayoutEffect(() => {
       const el = getRefCurrent(resolvedRef)
       if (el) {
-        const ids: string[] = Array.from(el.querySelectorAll<HTMLElement>('.draggable')).map(
-          (d) => d.getAttribute('data-id') || '',
-        )
+        const ids: string[] = Array.from(
+          el.querySelectorAll<HTMLElement>('[data-rtdnd="draggable"]'),
+        ).map((d) => d.getAttribute('data-id') || '')
         dispatch({ type: 'setColumnIds', value: ids })
       }
     }, [children, dispatch, getRefCurrent, resolvedRef])
 
     return (
-      <div className={`header ${className ?? ''}`}>
+      <div data-rtdnd="header" className={className}>
         <div
-          className="thead"
+          data-rtdnd="thead"
           style={theadDefaultStyles}
           data-droppableid={'header'}
           onScroll={HeaderScrollHandle}
           ref={resolvedRef}
         >
-          <div style={defaultStyles} className="tr">
+          <div style={defaultStyles} data-rtdnd="tr">
             {children}
           </div>
         </div>

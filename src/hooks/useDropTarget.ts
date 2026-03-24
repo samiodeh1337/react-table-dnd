@@ -30,7 +30,7 @@ const useDropTarget = (refs: HookRefs, options: Options): DropTargetResult => {
     const scrollTop = body.scrollTop
     const topOffset = body.getBoundingClientRect().top
 
-    const elements = body.querySelectorAll('.draggable[data-type="row"]')
+    const elements = body.querySelectorAll('[data-rtdnd="draggable"][data-type="row"]')
     let items: RowItem[] = []
     for (let i = 0; i < elements.length; i++) {
       const el = elements[i] as HTMLElement
