@@ -15,8 +15,10 @@ interface ShiftTransformsResult {
     sourceIndex: number | null,
     targetIndex: number | null,
     dtype: DragType | null,
+    selectedSet?: Set<number>,
   ) => void
   clearShiftTransforms: () => void
+  repositionMultiDragPlaceholder: () => void
   prevTargetIndexRef: React.RefObject<number | null> // reset on clear
   draggedSizeRef: React.RefObject<{ width: number; height: number }> // set by beginDrag
 }
@@ -34,6 +36,12 @@ const useShiftTransforms = (
   const shiftedElementsRef = useRef<Set<HTMLElement>>(new Set())
   const shiftedCellsRef = useRef<Set<HTMLElement>>(new Set())
   const cellShiftCache = useRef<Map<HTMLElement, string>>(new Map())
+
+  // multi-drag placeholder: gap position in scroll-space so it survives body scroll
+  const mdGapRef = useRef<{
+    scrollSpaceTop: number // gap top relative to body content
+    gapHeight: number
+  } | null>(null)
 
   const positionPlaceholder = useCallback(
     (
@@ -91,12 +99,140 @@ const useShiftTransforms = (
     [refs.placeholderRef, refs.tableRef, refs.bodyRef],
   )
 
+  // Lightweight helper: convert scroll-space gap position to viewport coords.
+  // Called both from applyShiftTransforms and on every frame during multi-drag scroll.
+  const positionMultiDragPh = useCallback(() => {
+    const gap = mdGapRef.current
+    const ph = refs.placeholderRef?.current
+    if (!ph || !gap) return
+    const body = refs.bodyRef?.current
+    if (!body) return
+
+    // Convert scroll-space → viewport: subtract scrollTop, add body's viewport top
+    const bodyRect = body.getBoundingClientRect()
+    const viewportTop = gap.scrollSpaceTop - body.scrollTop + bodyRect.top
+    const tableRect = refs.tableRef?.current?.getBoundingClientRect()
+    const scrollbarW = body.offsetWidth - body.clientWidth
+
+    ph.style.display = 'block'
+    ph.style.top = `${viewportTop}px`
+    ph.style.left = `${tableRect?.left ?? bodyRect.left}px`
+    ph.style.width = `${(tableRect?.width ?? bodyRect.width) - scrollbarW}px`
+    ph.style.height = `${gap.gapHeight}px`
+    ph.style.transition = prefersReducedMotion() ? '' : PH_TRANSITION_STYLE
+    ph.style.transform = ''
+  }, [refs.placeholderRef, refs.tableRef, refs.bodyRef])
+
   const applyShiftTransforms = useCallback(
-    (sourceIndex: number | null, targetIndex: number | null, dtype: DragType | null) => {
+    (
+      sourceIndex: number | null,
+      targetIndex: number | null,
+      dtype: DragType | null,
+      selectedSet?: Set<number>,
+    ) => {
       if (sourceIndex === null || targetIndex === null) return
       const size = draggedSizeRef.current
       const prevTarget = prevTargetIndexRef.current
 
+      // read before any writes to avoid layout thrashing
+      let targetEl: HTMLElement | null = null
+      const map = dtype === 'row' ? rowIndexMapRef.current : colIndexMapRef.current
+      const entry = map.get(targetIndex)
+      if (entry) targetEl = entry.outer
+
+      // ── Multi-drag row path ──
+      if (selectedSet && selectedSet.size > 1 && dtype === 'row') {
+        const sortedSel = Array.from(selectedSet).sort((a, b) => a - b)
+        const N = sortedSel.length
+
+        // binary-search: count of selected indices < val
+        const countBefore = (val: number) => {
+          let lo = 0,
+            hi = sortedSel.length
+          while (lo < hi) {
+            const mid = (lo + hi) >> 1
+            if (sortedSel[mid] < val) lo = mid + 1
+            else hi = mid
+          }
+          return lo
+        }
+
+        const effectiveTarget = targetIndex - countBefore(targetIndex)
+
+        // Track elements adjacent to the gap for placeholder positioning.
+        // "after gap" = first non-selected item whose compacted position >= effectiveTarget
+        // "before gap" = last non-selected item whose compacted position < effectiveTarget
+        let afterEl: HTMLElement | null = null
+        let afterDelta = 0
+        let afterPosWithout = Infinity
+        let beforeEl: HTMLElement | null = null
+        let beforeDelta = 0
+        let beforePosWithout = -1
+
+        for (const [idx, { outer, inner }] of rowIndexMapRef.current) {
+          if (selectedSet.has(idx)) {
+            inner.style.opacity = '0'
+            inner.style.transform = ''
+            inner.style.transition = 'none'
+            shiftedElementsRef.current.add(inner)
+            outer.removeAttribute('data-drop-target')
+            continue
+          }
+          const holesBefore = countBefore(idx)
+          const posWithout = idx - holesBefore
+          const finalPos = posWithout < effectiveTarget ? posWithout : posWithout + N
+          const delta = finalPos - idx
+
+          inner.style.transform = delta !== 0 ? `translateY(${delta * size.height}px)` : ''
+          inner.style.transition = prefersReducedMotion() ? 'none' : TRANSITION_STYLE
+          if (delta !== 0) shiftedElementsRef.current.add(inner)
+          if (idx === targetIndex) outer.setAttribute('data-drop-target', 'true')
+          else outer.removeAttribute('data-drop-target')
+
+          // Track gap neighbours (outer element — its rect is stable, not mid-transition)
+          if (posWithout >= effectiveTarget && posWithout < afterPosWithout) {
+            afterEl = outer
+            afterDelta = delta
+            afterPosWithout = posWithout
+          }
+          if (posWithout < effectiveTarget && posWithout > beforePosWithout) {
+            beforeEl = outer
+            beforeDelta = delta
+            beforePosWithout = posWithout
+          }
+        }
+
+        // Compute gap position in scroll-space (survives body scroll)
+        const refEl = afterEl ?? beforeEl
+        if (refEl) {
+          const body = refs.bodyRef?.current
+          const bodyTop = body?.getBoundingClientRect().top ?? 0
+          const scrollTop = body?.scrollTop ?? 0
+          // Convert outer element's viewport position to scroll-space
+          const refScrollTop = refEl.getBoundingClientRect().top - bodyTop + scrollTop
+          let gapScrollTop: number
+          if (afterEl) {
+            // afterEl final scroll-space top = refScrollTop + afterDelta * height
+            // gap sits N*height above it
+            gapScrollTop = refScrollTop + (afterDelta - N) * size.height
+          } else {
+            // beforeEl final scroll-space bottom = refScrollTop + (beforeDelta+1) * height
+            gapScrollTop = refScrollTop + (beforeDelta + 1) * size.height
+          }
+          mdGapRef.current = { scrollSpaceTop: gapScrollTop, gapHeight: N * size.height }
+        } else {
+          mdGapRef.current = null
+        }
+        positionMultiDragPh()
+
+        prevTargetIndexRef.current = targetIndex
+        return
+      }
+
+      // ── Single-drag: position placeholder ──
+      positionPlaceholder(targetEl, sourceIndex, targetIndex, dtype)
+
+      // ── Single-drag path ──
       // only update the affected range instead of all elements
       const needsFullPass = prevTarget === null
       const rangeMin = needsFullPass
@@ -105,14 +241,6 @@ const useShiftTransforms = (
       const rangeMax = needsFullPass
         ? Infinity
         : Math.max(prevTarget!, targetIndex, sourceIndex) + 1
-
-      // read before any writes to avoid layout thrashing
-      let targetEl: HTMLElement | null = null
-      const map = dtype === 'row' ? rowIndexMapRef.current : colIndexMapRef.current
-      const entry = map.get(targetIndex)
-      if (entry) targetEl = entry.outer
-
-      positionPlaceholder(targetEl, sourceIndex, targetIndex, dtype)
 
       const applyShift = (idxMap: IndexMap, axis: 'Y' | 'X', amount: number) => {
         const doEntry = (idx: number, outer: HTMLElement, inner: HTMLElement) => {
@@ -170,7 +298,14 @@ const useShiftTransforms = (
 
       prevTargetIndexRef.current = targetIndex
     },
-    [positionPlaceholder, rowIndexMapRef, colIndexMapRef, cellIndexMapRef],
+    [
+      positionPlaceholder,
+      positionMultiDragPh,
+      rowIndexMapRef,
+      colIndexMapRef,
+      cellIndexMapRef,
+      refs.bodyRef,
+    ],
   )
 
   const clearShiftTransforms = useCallback(() => {
@@ -180,6 +315,7 @@ const useShiftTransforms = (
     for (const inner of shiftedElementsRef.current) {
       inner.style.transition = 'none'
       inner.style.transform = ''
+      inner.style.opacity = ''
       const parent = inner.parentElement
       if (parent) parent.removeAttribute('data-drop-target')
     }
@@ -192,12 +328,19 @@ const useShiftTransforms = (
     shiftedCellsRef.current.clear()
     cellShiftCache.current.clear()
 
+    mdGapRef.current = null
     prevTargetIndexRef.current = null
   }, [refs.placeholderRef])
+
+  // Cheap reposition for multi-drag placeholder during scroll (no shift recalc)
+  const repositionMultiDragPlaceholder = useCallback(() => {
+    positionMultiDragPh()
+  }, [positionMultiDragPh])
 
   return {
     applyShiftTransforms,
     clearShiftTransforms,
+    repositionMultiDragPlaceholder,
     prevTargetIndexRef,
     draggedSizeRef,
   }

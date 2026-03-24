@@ -51,6 +51,7 @@ const useDragContextEvents = (
   dragType: DragType | null,
   options: Options,
   onDragEnd: ((result: DragEndResult) => void) | undefined,
+  selectedIndices?: number[],
 ) => {
   const {
     startAutoScroll,
@@ -65,7 +66,13 @@ const useDragContextEvents = (
   const { rowIndexMapRef, colIndexMapRef, cellIndexMapRef, mapStaleRef } = indexMaps
 
   const shifts = useShiftTransforms(refs, rowIndexMapRef, colIndexMapRef, cellIndexMapRef)
-  const { applyShiftTransforms, clearShiftTransforms, prevTargetIndexRef, draggedSizeRef } = shifts
+  const {
+    applyShiftTransforms,
+    clearShiftTransforms,
+    repositionMultiDragPlaceholder,
+    prevTargetIndexRef,
+    draggedSizeRef,
+  } = shifts
 
   const drop = useDropTarget(refs, options)
   const { resolveDropIndex, cachedItemsRef, cachedContainerRef } = drop
@@ -79,6 +86,11 @@ const useDragContextEvents = (
   const cloneBodyElRef = useRef<HTMLElement | null>(null)
   const draggedInnerElRef = useRef<HTMLElement | null>(null)
   const draggedColCellsRef = useRef<HTMLElement[]>([])
+
+  // Multi-drag refs
+  const multiDragSetRef = useRef<Set<number> | null>(null)
+  const multiDragIndicesRef = useRef<number[] | null>(null)
+  const hiddenInnerElsRef = useRef<HTMLElement[]>([])
 
   const beginDrag = useCallback(
     (
@@ -103,6 +115,16 @@ const useDragContextEvents = (
       draggedColCellsRef.current = []
       prevTargetIndexRef.current = null
       dragEndFiredRef.current = false
+
+      // Multi-drag: freeze selection at drag start
+      const isMultiDrag =
+        dtype === 'row' &&
+        selectedIndices &&
+        selectedIndices.length > 1 &&
+        selectedIndices.includes(sourceIndex)
+      multiDragSetRef.current = isMultiDrag ? new Set(selectedIndices) : null
+      multiDragIndicesRef.current = isMultiDrag ? [...selectedIndices].sort((a, b) => a - b) : null
+      hiddenInnerElsRef.current = []
 
       const scrollOffset = dtype === 'row' ? (refs.bodyRef?.current?.scrollLeft ?? 0) : 0
       const itemRect = draggableEl.getBoundingClientRect()
@@ -139,9 +161,24 @@ const useDragContextEvents = (
       }
       draggedInnerElRef.current = draggedInnerEl
 
+      // Multi-drag: hide all other selected rows after maps are built
+      if (isMultiDrag) {
+        for (const selIdx of multiDragIndicesRef.current!) {
+          if (selIdx === sourceIndex) continue // already hidden above
+          const entry = rowIndexMapRef.current.get(selIdx)
+          if (entry) {
+            entry.inner.style.opacity = '0'
+            entry.inner.style.pointerEvents = 'none'
+            hiddenInnerElsRef.current.push(entry.inner)
+          }
+        }
+      }
+
       const cloneEl = refs.cloneRef?.current
       if (cloneEl) {
         cloneEl.innerHTML = ''
+        cloneEl.classList.remove('multi-drag-clone')
+        if (isMultiDrag) cloneEl.classList.add('multi-drag-clone')
         cloneEl.style.transform = `translate(${translate.x}px, ${translate.y}px)`
 
         // Build native DOM clone (no React re-render needed)
@@ -153,9 +190,62 @@ const useDragContextEvents = (
         isVirtualRef.current = firstBodyRow?.style.position === 'absolute'
 
         if (dtype === 'row') {
-          // children of Draggable = first child of draggableEl's inner div = the .tr element
           const rowContent = draggableEl.firstElementChild?.firstElementChild
-          if (rowContent) cloneEl.appendChild(rowContent.cloneNode(true))
+          if (rowContent) {
+            if (isMultiDrag) {
+              // Stacked clone: use box-shadow for the "stack" effect.
+              // Box-shadow renders OUTSIDE the element and is never clipped by overflow.
+              const count = multiDragSetRef.current!.size
+              const layers = Math.min(count, 3)
+
+              const wrapper = document.createElement('div')
+              wrapper.style.position = 'relative'
+
+              // Primary layer with stacked box-shadow
+              const primaryWrap = document.createElement('div')
+              primaryWrap.style.position = 'relative'
+              primaryWrap.style.zIndex = '2'
+              // Build stacked shadow layers
+              const shadows: string[] = []
+              for (let i = 1; i < layers; i++) {
+                const offset = i * 4
+                const opacity = 0.4 - (i - 1) * 0.15
+                shadows.push(`${offset}px ${offset}px 0 -1px #1e1e24`)
+                shadows.push(`${offset}px ${offset}px 0 0 rgba(46,46,54,${opacity})`)
+              }
+              if (shadows.length) primaryWrap.style.boxShadow = shadows.join(', ')
+              primaryWrap.style.borderRadius = '4px'
+              primaryWrap.appendChild(rowContent.cloneNode(true))
+              wrapper.appendChild(primaryWrap)
+
+              // Badge — positioned outside the clone, needs overflow:visible on #portalroot
+              const badge = document.createElement('div')
+              badge.textContent = String(count)
+              Object.assign(badge.style, {
+                position: 'absolute',
+                top: '-10px',
+                right: '-10px',
+                zIndex: '10',
+                background: '#6366f1',
+                color: '#fff',
+                borderRadius: '50%',
+                minWidth: '24px',
+                height: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '12px',
+                fontWeight: '700',
+                boxShadow: '0 2px 8px rgba(99,102,241,.4)',
+                lineHeight: '1',
+              })
+              wrapper.appendChild(badge)
+
+              cloneEl.appendChild(wrapper)
+            } else {
+              cloneEl.appendChild(rowContent.cloneNode(true))
+            }
+          }
         } else if (dtype === 'column' && body) {
           const idx = String(sourceIndex)
 
@@ -262,6 +352,8 @@ const useDragContextEvents = (
       cachedContainerRef,
       draggedSizeRef,
       prevTargetIndexRef,
+      selectedIndices,
+      rowIndexMapRef,
     ],
   )
 
@@ -274,7 +366,10 @@ const useDragContextEvents = (
       savedScrollLeft: number,
     ) => {
       const cloneEl = refs.cloneRef?.current
-      if (cloneEl) cloneEl.style.visibility = 'hidden'
+      if (cloneEl) {
+        cloneEl.style.visibility = 'hidden'
+        cloneEl.classList.remove('multi-drag-clone')
+      }
 
       if (draggedInnerElRef.current) {
         draggedInnerElRef.current.style.opacity = ''
@@ -284,6 +379,13 @@ const useDragContextEvents = (
         draggedInnerElRef.current = null
       }
 
+      // Restore multi-drag hidden elements
+      for (const el of hiddenInnerElsRef.current) {
+        el.style.opacity = ''
+        el.style.pointerEvents = ''
+      }
+      hiddenInnerElsRef.current = []
+
       draggedColCellsRef.current.forEach((cell) => {
         cell.style.opacity = ''
       })
@@ -292,6 +394,11 @@ const useDragContextEvents = (
       const tableEl = refs.tableRef?.current
       if (tableEl) tableEl.style.touchAction = ''
 
+      // Capture multi-drag state before clearing
+      const frozenSourceIndices = multiDragIndicesRef.current
+      multiDragSetRef.current = null
+      multiDragIndicesRef.current = null
+
       flushSync(() => {
         if (
           onDragEnd &&
@@ -299,7 +406,13 @@ const useDragContextEvents = (
           finalTarget !== null &&
           (finalDragType === 'row' || finalDragType === 'column')
         ) {
-          onDragEnd({ sourceIndex: finalSource, targetIndex: finalTarget, dragType: finalDragType })
+          const result: DragEndResult = {
+            sourceIndex: finalSource,
+            targetIndex: finalTarget,
+            dragType: finalDragType,
+          }
+          if (frozenSourceIndices) result.sourceIndices = frozenSourceIndices
+          onDragEnd(result)
         }
         dispatch({ type: 'dragEnd', value: { targetIndex: finalTarget, sourceIndex: finalSource } })
       })
@@ -380,9 +493,13 @@ const useDragContextEvents = (
       if (isTouchActiveRef.current) return // touch gesture in progress
       if (isScrollbarClick(e.clientX, e.clientY, e.target as HTMLElement)) return // click on scrollbar track/thumb
 
+      // When multi-select is active, modifier-key clicks are for selection, not drag
+      if (selectedIndices && selectedIndices.length >= 0 && (e.ctrlKey || e.metaKey || e.shiftKey))
+        return
+
       beginDrag(e, e.clientX, e.clientY)
     },
-    [beginDrag, isTouchActiveRef],
+    [beginDrag, isTouchActiveRef, selectedIndices],
   )
 
   const dragMove = useCallback(
@@ -466,10 +583,16 @@ const useDragContextEvents = (
                 c.scrollTop,
                 initialRef.current,
                 draggedSizeRef.current,
+                multiDragSetRef.current ?? undefined,
               )
               targetIndexRef.current = freshDropIndex
               prevTargetIndexRef.current = null
-              applyShiftTransforms(sourceIndexRef.current, freshDropIndex, 'row')
+              applyShiftTransforms(
+                sourceIndexRef.current,
+                freshDropIndex,
+                'row',
+                multiDragSetRef.current ?? undefined,
+              )
             })
           }
         }
@@ -507,10 +630,22 @@ const useDragContextEvents = (
               )
               targetIndexRef.current = freshDropIndex
               prevTargetIndexRef.current = null
-              applyShiftTransforms(sourceIndexRef.current, freshDropIndex, 'column')
+              applyShiftTransforms(
+                sourceIndexRef.current,
+                freshDropIndex,
+                'column',
+                multiDragSetRef.current ?? undefined,
+              )
             })
           }
         }
+      }
+
+      // Multi-drag: always refresh container rect + item cache so positions are never stale
+      if (multiDragSetRef.current) {
+        cachedItemsRef.current = null
+        rect = container.getBoundingClientRect()
+        cachedContainerRef.current = rect
       }
 
       const dropIndex = resolveDropIndex(
@@ -521,10 +656,19 @@ const useDragContextEvents = (
         bodyScrollTop,
         initial,
         draggedSizeRef.current,
+        multiDragSetRef.current ?? undefined,
       )
       if (dropIndex !== targetIndexRef.current) {
         targetIndexRef.current = dropIndex
-        requestAnimationFrame(() => applyShiftTransforms(sourceIndexRef.current, dropIndex, dtype))
+        applyShiftTransforms(
+          sourceIndexRef.current,
+          dropIndex,
+          dtype,
+          multiDragSetRef.current ?? undefined,
+        )
+      } else if (multiDragSetRef.current) {
+        // Placeholder is position:fixed — reposition every frame to track body scroll
+        repositionMultiDragPlaceholder()
       }
     },
     [
@@ -540,6 +684,7 @@ const useDragContextEvents = (
       indexMaps,
       resolveDropIndex,
       applyShiftTransforms,
+      repositionMultiDragPlaceholder,
       cachedItemsRef,
       cachedContainerRef,
       mapStaleRef,
@@ -555,8 +700,27 @@ const useDragContextEvents = (
     cachedItemsRef.current = null
     cachedContainerRef.current = null
 
+    // Restore multi-drag hidden elements
+    if (draggedInnerElRef.current) {
+      draggedInnerElRef.current.style.opacity = ''
+      draggedInnerElRef.current.style.pointerEvents = ''
+      draggedInnerElRef.current.style.zIndex = ''
+      draggedInnerElRef.current.style.cursor = ''
+      draggedInnerElRef.current = null
+    }
+    for (const el of hiddenInnerElsRef.current) {
+      el.style.opacity = ''
+      el.style.pointerEvents = ''
+    }
+    hiddenInnerElsRef.current = []
+    multiDragSetRef.current = null
+    multiDragIndicesRef.current = null
+
     const cloneEl = refs.cloneRef?.current
-    if (cloneEl) cloneEl.style.visibility = 'hidden'
+    if (cloneEl) {
+      cloneEl.style.visibility = 'hidden'
+      cloneEl.classList.remove('multi-drag-clone')
+    }
     const tableEl = refs.tableRef?.current
     if (tableEl) tableEl.style.touchAction = ''
 
@@ -589,6 +753,7 @@ const useDragContextEvents = (
         cloneEl.style.visibility = ''
         cloneEl.scrollLeft = 0
         cloneEl.innerHTML = ''
+        cloneEl.classList.remove('multi-drag-clone')
       }
     }
   }, [dragged.isDragging, clearShiftTransforms, refs.cloneRef])

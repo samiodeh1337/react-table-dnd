@@ -14,6 +14,7 @@ interface DropTargetResult {
     bodyScrollTop: number,
     initial: Point,
     size: { width: number; height: number },
+    selectedSet?: Set<number>,
   ) => number
   cachedItemsRef: React.RefObject<RowItem[] | ColumnItem[] | null> // null = invalidated
   cachedContainerRef: React.RefObject<DOMRect | null>
@@ -91,6 +92,7 @@ const useDropTarget = (refs: HookRefs, options: Options): DropTargetResult => {
       bodyScrollTop: number,
       initial: Point,
       size: { width: number; height: number },
+      selectedSet?: Set<number>,
     ): number => {
       let items: RowItem[] | ColumnItem[] | null
       if (dtype === 'row') {
@@ -102,7 +104,38 @@ const useDropTarget = (refs: HookRefs, options: Options): DropTargetResult => {
         if (items && items.length > 0) {
           // use clone center, not raw pointer — feels more natural
           const cloneCenterY = clientY - initial.y + size.height / 2
-          return binarySearchDropIndex(cloneCenterY - rect.top + bodyScrollTop, items)
+          const searchY = cloneCenterY - rect.top + bodyScrollTop
+
+          // Multi-drag: collapse selected rows to zero height so binary search
+          // never lands on hidden rows — eliminates the N+1 dead zone.
+          if (selectedSet && selectedSet.size > 1) {
+            let cumulativeRemoved = 0
+            const collapsed: RowItem[] = []
+            for (const item of items as RowItem[]) {
+              const idx = +item.index
+              if (selectedSet.has(idx)) {
+                // selected row: accumulate its height, push zero-height entry
+                cumulativeRemoved += item.height
+                collapsed.push({
+                  height: 0,
+                  itemTop: item.itemTop - cumulativeRemoved + item.height,
+                  itemBottom: item.itemTop - cumulativeRemoved + item.height,
+                  index: item.index,
+                })
+              } else {
+                // non-selected row: shift up by total removed height so far
+                collapsed.push({
+                  height: item.height,
+                  itemTop: item.itemTop - cumulativeRemoved,
+                  itemBottom: item.itemBottom - cumulativeRemoved,
+                  index: item.index,
+                })
+              }
+            }
+            return binarySearchDropIndex(searchY, collapsed)
+          }
+
+          return binarySearchDropIndex(searchY, items)
         }
       } else {
         items = cachedItemsRef.current as ColumnItem[] | null

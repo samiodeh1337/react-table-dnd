@@ -14,6 +14,7 @@ interface TableProviderProps {
   style?: React.CSSProperties
   onDragEnd?: (result: DragEndResult) => void
   renderPlaceholder?: () => ReactNode
+  selectedIndices?: number[]
   options?: {
     columnDragRange: DragRange
     rowDragRange: DragRange
@@ -127,7 +128,7 @@ const PLACEHOLDER_STYLES: CSSProperties = {
 }
 
 const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
-  ({ children, className, style, options, onDragEnd, renderPlaceholder }, ref) => {
+  ({ children, className, style, options, onDragEnd, renderPlaceholder, selectedIndices }, ref) => {
     const localRef = useRef<HTMLDivElement>(null)
     const cloneRef = useRef(null)
     const placeholderRef = useRef<HTMLDivElement>(null)
@@ -182,6 +183,7 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
       state.dragType,
       state.options,
       onDragEnd,
+      selectedIndices,
     )
 
     // transform is set directly via DOM in useDragContextEvents

@@ -15,6 +15,7 @@ import StyledCompExample from './examples/example-styledcomp'
 import TailwindExample from './examples/example-tailwind'
 import ScrollCellExample from './examples/example-scrollcell'
 import WidthsExample from './examples/example-widths'
+import MultiSelectExample from './examples/example-multiselect'
 import {
   TableContainer as _TC,
   TableHeader as _TH,
@@ -39,6 +40,7 @@ import srcTailwindTsx from './examples/example-tailwind.tsx?raw'
 import srcScrollCellTsx from './examples/example-scrollcell.tsx?raw'
 import srcScrollCellJsx from './examples/jsx/example-scrollcell.jsx?raw'
 import srcWidthsTsx from './examples/example-widths.tsx?raw'
+import srcMultiSelectTsx from './examples/example-multiselect.tsx?raw'
 import srcDataTsx from './examples/example-data.ts?raw'
 
 // Raw source imports for code preview (JSX — standalone copies)
@@ -110,6 +112,20 @@ const EXAMPLES = [
     component: Virtual2DExample,
     tsx: prepareTsx(srcVirtual2dTsx),
     jsx: srcVirtual2dJsx,
+  },
+  {
+    id: 'multiselect',
+    label: 'Multi-Select',
+    component: MultiSelectExample,
+    tsx: prepareTsx(srcMultiSelectTsx),
+    jsx: prepareTsx(srcMultiSelectTsx),
+  },
+  {
+    id: 'multiselect-virtual',
+    label: 'Multi-Select (virtual)',
+    component: VirtualExample,
+    tsx: prepareTsx(srcVirtualTsx),
+    jsx: srcVirtualJsx,
   },
   {
     id: 'handle',

@@ -63,3 +63,8 @@
   cursor: -webkit-grab;
   cursor: grab;
 }
+
+/* multi-drag stacked clone: must override React inline overflow:scroll */
+#portalroot.multi-drag-clone {
+  overflow: visible !important;
+}

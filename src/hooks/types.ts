@@ -7,6 +7,8 @@ export interface DragEndResult {
   sourceIndex: number
   targetIndex: number
   dragType: DragType
+  /** Present during multi-drag — all selected indices, sorted ascending */
+  sourceIndices?: number[]
 }
 
 export interface DraggedState {
