@@ -54,7 +54,7 @@ const Draggable: React.FC<DraggableProps> = memo(({ children, id, index, type, s
   return (
     <div
       ref={outerRef}
-      className="draggable"
+      data-rtdnd="draggable"
       data-id={id}
       data-index={index}
       data-type={type}

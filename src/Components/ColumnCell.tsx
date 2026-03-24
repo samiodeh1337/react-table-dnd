@@ -36,7 +36,8 @@ const ColumnCell: React.FC<ColumnCellProps> = memo(({ children, style, className
   return (
     <Draggable {...(props as DraggableProps)} styles={draggableStyles} type={'column'}>
       <div
-        className={`th ${className ?? ''}`}
+        data-rtdnd="th"
+        className={className}
         data-width={colCellWidth}
         style={{ width: '100%', ...contentStyle, boxSizing: 'border-box' }}
       >

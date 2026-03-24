@@ -160,7 +160,7 @@ const useDragContextEvents = (
           const idx = String(sourceIndex)
 
           // Header: clone just the .th element — mirrors React.cloneElement(children) from Draggable
-          const thEl = draggableEl.querySelector('.th')
+          const thEl = draggableEl.querySelector('[data-rtdnd="th"]')
           if (thEl) {
             const headerWrapper = document.createElement('div')
             headerWrapper.style.flexShrink = '0'
@@ -174,7 +174,7 @@ const useDragContextEvents = (
           bodyWrapper.style.flex = '1'
 
           const inner = document.createElement('div')
-          inner.className = 'rbody'
+          inner.dataset.rtdnd = 'rbody'
           inner.style.height = `${body.scrollHeight}px`
           inner.style.position = 'relative'
 
@@ -183,7 +183,7 @@ const useDragContextEvents = (
             if (isVirtualRef.current) {
               // Virtual rows have spacer divs alongside cells. Strip .tr down to just
               // the target cell so the column strip shows correctly at offset 0.
-              const trEl = rowClone.querySelector('.tr')
+              const trEl = rowClone.querySelector('[data-rtdnd="tr"]')
               if (trEl) {
                 const targetCell = trEl.querySelector(`[data-col-index="${idx}"]`)
                 while (trEl.firstChild) trEl.removeChild(trEl.firstChild)
@@ -204,7 +204,7 @@ const useDragContextEvents = (
             // The 'clone-body-strip' class hides scrollbar in WebKit via style.css
             bodyWrapper.style.overflow = 'auto'
             bodyWrapper.style.scrollbarWidth = 'none'
-            bodyWrapper.className = 'clone-body-strip'
+            bodyWrapper.dataset.rtdnd = 'clone-body-strip'
           } else {
             bodyWrapper.style.overflow = 'hidden'
           }

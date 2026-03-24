@@ -1,5 +1,4 @@
 import Draggable from './Draggable'
-import classNames from 'classnames'
 import React, { useMemo, memo } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import type { DraggableProps } from './Draggable'
@@ -22,11 +21,9 @@ const BodyRow: React.FC<BodyRowProps> = memo(({ children, style, className, ...p
     () => (style ? { ...DEFAULT_STYLES, ...style } : DEFAULT_STYLES),
     [style],
   )
-  const mergedClassName = classNames('tr', className)
-
   return (
     <Draggable {...(props as DraggableProps)} type={'row'}>
-      <div className={mergedClassName} style={mergedStyles}>
+      <div data-rtdnd="tr" className={className} style={mergedStyles}>
         {children}
       </div>
     </Draggable>

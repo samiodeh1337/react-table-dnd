@@ -60,9 +60,9 @@ const TableBody = forwardRef<HTMLDivElement, TableBodyProps>(
     }, [dispatch, localRef])
 
     return (
-      <div className={`body ${className ?? ''}`} style={BODY_STYLES}>
+      <div data-rtdnd="body" className={className} style={BODY_STYLES}>
         <div
-          className="ibody"
+          data-rtdnd="ibody"
           style={InnerBodyDefaultStyles}
           data-droppableid={'body'}
           onScroll={BodyScrollHandle}
