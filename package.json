@@ -1,6 +1,6 @@
 {
   "name": "react-table-dnd",
-  "version": "2.0.15",
+  "version": "2.0.16",
   "type": "module",
   "description": "Sortable table with draggable rows and columns",
   "main": "dist/index.cjs.js",
@@ -13,7 +13,10 @@
       "require": "./dist/index.cjs.js",
       "types": "./dist/index.d.ts"
     },
-    "./styles": "./dist/react-table-dnd.css",
+    "./styles": {
+      "types": "./dist/styles.d.ts",
+      "default": "./dist/react-table-dnd.css"
+    },
     "./dist/react-table-dnd.css": "./dist/react-table-dnd.css"
   },
   "sideEffects": [
@@ -23,7 +26,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node -e \"require('fs').copyFileSync('src/styles.d.ts','dist/styles.d.ts')\"",
     "dev": "vite --config vite.config.docs.ts",
     "build:docs": "vite build --config vite.config.docs.ts",
     "lint": "eslint .",
