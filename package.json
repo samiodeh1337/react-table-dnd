@@ -1,6 +1,6 @@
 {
   "name": "react-table-dnd",
-  "version": "2.0.18",
+  "version": "3.0.0",
   "type": "module",
   "description": "Drag-and-drop rows and columns for React tables: multi-select group drag, virtual lists, touch, no dependencies",
   "main": "dist/index.cjs",
