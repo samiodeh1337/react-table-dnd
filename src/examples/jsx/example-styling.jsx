@@ -6,6 +6,7 @@ import {
   TableBody,
   BodyRow,
   RowCell,
+  moveRowsById,
 } from 'react-table-dnd'
 
 function generateRows(count) {
@@ -65,6 +66,7 @@ function arrayMove(arr, from, to) {
 //                    color: #fbbf24; border-bottom: 2px solid #f59e0b44;
 //                    text-transform: uppercase; cursor: grab; }
 // .my-col:hover    { background: #221f0e; }
+// .my-row[data-selected='true'] { outline: 2px solid #6366f1; outline-offset: -2px; }
 // .my-row:hover
 //   .my-cell       { background: #1a1810 !important; }
 // .my-cell         { display: flex; align-items: center; height: 38px;
@@ -84,18 +86,28 @@ const INIT_COLS = [
 export default function StylingExample() {
   const [data, setData] = useState(() => generateRows(60))
   const [cols, setCols] = useState(INIT_COLS)
+  const [selected, setSelected] = useState([])
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 
-  const handleDragEnd = useCallback(({ sourceIndex, targetIndex, dragType }) => {
-    if (sourceIndex === targetIndex) return
-    if (dragType === 'row') setData((p) => arrayMove(p, sourceIndex, targetIndex))
-    else setCols((p) => arrayMove(p, sourceIndex, targetIndex))
-  }, [])
+  const handleDragEnd = useCallback(
+    ({ sourceIndex, targetIndex, dragType, selectedIds, insertIndex }) => {
+      if (dragType === 'row') {
+        // selectedIds = every row that moved (one id for a plain drag), insertIndex = the gap
+        setData((p) => moveRowsById(p, selectedIds, insertIndex))
+        return
+      }
+      if (sourceIndex !== targetIndex) setCols((p) => arrayMove(p, sourceIndex, targetIndex))
+    },
+    [],
+  )
 
   return (
     <TableContainer
       options={options}
       onDragEnd={handleDragEnd}
+      selectable
+      selectedIds={selected}
+      onSelectionChange={setSelected}
       className="my-table"
       style={{ height: 420, background: '#0f0e09' }}
     >

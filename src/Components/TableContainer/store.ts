@@ -16,7 +16,9 @@ export function createTableStore(
   return {
     getState: () => state,
     dispatch(action) {
-      state = reducer(state, action)
+      const next = reducer(state, action)
+      if (next === state) return // no-op (e.g. controlled selection re-synced with equal ids)
+      state = next
       listeners.forEach((l) => l())
     },
     subscribe(listener) {

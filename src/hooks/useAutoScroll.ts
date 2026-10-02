@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from 'react'
+import { useRef, useCallback, useEffect, useMemo } from 'react'
 import type { HookRefs } from './types'
 
 const EDGE_ZONE = 30 // px from edge to trigger auto-scroll
@@ -15,6 +15,8 @@ const useAutoScroll = (refs: HookRefs) => {
 
   const isAutoScrollingHorizontal = useRef(false)
   const isAutoScrollingVertical = useRef(false)
+  /** Called after every auto-scroll write (the pointer may be still, but the content moved). */
+  const onTickRef = useRef<(() => void) | null>(null)
   const decaySpeed = useRef(0)
   const animationFrameRef = useRef<number | null>(null)
 
@@ -78,6 +80,8 @@ const useAutoScroll = (refs: HookRefs) => {
         if (hRef?.current) hRef.current.scrollLeft = ref.scrollLeft
       }
 
+      onTickRef.current?.()
+
       // Hit boundary — stop
       const pos = isVertical ? ref.scrollTop : ref.scrollLeft
       if (pos >= maxScroll || pos <= 0) {
@@ -132,16 +136,20 @@ const useAutoScroll = (refs: HookRefs) => {
     [bodyRef],
   )
 
-  return {
-    startAutoScroll,
-    stopAutoScroll,
-    setContainerRect,
-    isAutoScrollingVertical,
-    isAutoScrollingHorizontal,
-    pointerRef,
-    BodyScrollHandle,
-    HeaderScrollHandle,
-  }
+  return useMemo(
+    () => ({
+      startAutoScroll,
+      stopAutoScroll,
+      setContainerRect,
+      isAutoScrollingVertical,
+      isAutoScrollingHorizontal,
+      onTickRef,
+      pointerRef,
+      BodyScrollHandle,
+      HeaderScrollHandle,
+    }),
+    [startAutoScroll, stopAutoScroll, setContainerRect, BodyScrollHandle, HeaderScrollHandle],
+  )
 }
 
 export default useAutoScroll

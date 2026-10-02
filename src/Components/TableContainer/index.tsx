@@ -1,4 +1,5 @@
-import React, { useImperativeHandle, useMemo, forwardRef, useState } from 'react'
+import * as React from 'react'
+import { useImperativeHandle, useMemo, forwardRef, useState, useCallback } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Styles } from './styles'
 import { useEffect, useRef } from 'react'
@@ -6,30 +7,93 @@ import { useSyncExternalStore } from 'react'
 import { StoreContext } from './useTable'
 import { createTableStore } from './store'
 import useDragContextEvents from '../../hooks/useDragContextEvents'
-import type { TableAction, TableState, DragEndResult, DragRange } from '../../hooks/types'
+import type {
+  TableAction,
+  TableState,
+  DragCancelInfo,
+  DragEndResult,
+  DragRange,
+  DragStartInfo,
+} from '../../hooks/types'
+import useIsomorphicLayoutEffect from '../../hooks/useIsomorphicLayoutEffect'
 
-interface TableProviderProps {
+/** Props of `TableContainer`. Other HTML attributes (`role`, `aria-*`, `data-*`, …) go on the table
+ *  element (`[data-rtdnd="table"]`). Its mouse-down and touch-start handlers start drags, so they
+ *  are the library's; the drag callbacks below replace HTML's native drag events. */
+export interface TableContainerProps extends Omit<
+  React.HTMLAttributes<HTMLDivElement>,
+  | 'children'
+  | 'className'
+  | 'style'
+  | 'onDragStart'
+  | 'onDragOver'
+  | 'onDragEnd'
+  | 'onMouseDown'
+  | 'onTouchStart'
+> {
   children: React.ReactNode
   className?: string
   style?: React.CSSProperties
+  /** A drop: apply it to your data (see `moveRowsById`). */
   onDragEnd?: (result: DragEndResult) => void
+  /** A row or column was picked up. */
+  onDragStart?: (info: DragStartInfo) => void
+  /** The drop slot changed: `result` is what a drop there would give. */
+  onDragOver?: (result: DragEndResult) => void
+  /** The drag ended without a drop (Escape, the window lost focus, or the pointer never moved). */
+  onDragCancel?: (info: DragCancelInfo) => void
   renderPlaceholder?: () => ReactNode
   options?: {
-    columnDragRange: DragRange
-    rowDragRange: DragRange
+    columnDragRange?: DragRange
+    rowDragRange?: DragRange
   }
+  /** Enable click / Ctrl+click / Shift+click row selection and group drag. Off by default. */
+  selectable?: boolean
+  /** Controlled selection. Omit to let the table keep the selection internally. */
+  selectedIds?: ReadonlyArray<string | number>
+  /** Initial selection for the uncontrolled mode. */
+  defaultSelectedIds?: ReadonlyArray<string | number>
+  /** Fires with the full selection (ids as strings, in table order) whenever it changes. */
+  onSelectionChange?: (ids: string[]) => void
+  /** Show the row-count badge on the drag card when several rows move together. Default true. */
+  showDragCount?: boolean
 }
 
 const DEFAULT_OPTIONS = {
   columnDragRange: { start: undefined, end: undefined },
   rowDragRange: { start: undefined, end: undefined },
   defaultSizing: 50,
+  selectable: false,
+  showDragCount: true,
+}
+
+const EMPTY_SELECTION: ReadonlySet<string> = new Set()
+
+function sameIdSet(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+  if (a.size !== b.size) return false
+  for (const id of a) if (!b.has(id)) return false
+  return true
 }
 
 function tableReducer(state: TableState, action: TableAction): TableState {
   switch (action.type) {
     case 'setDragged':
       return { ...state, dragged: { ...state.dragged, ...action.value } }
+    case 'setSelection': {
+      const anchorIndex =
+        action.value.anchorIndex === undefined
+          ? state.selection.anchorIndex
+          : action.value.anchorIndex
+      const anchorId =
+        action.value.anchorId === undefined ? state.selection.anchorId : action.value.anchorId
+      if (
+        sameIdSet(state.selection.ids, action.value.ids) &&
+        anchorIndex === state.selection.anchorIndex &&
+        anchorId === state.selection.anchorId
+      )
+        return state
+      return { ...state, selection: { ids: action.value.ids, anchorIndex, anchorId } }
+    }
     case 'setDragType':
       return { ...state, dragType: action.value }
     case 'setTableDimensions':
@@ -109,6 +173,7 @@ const INITIAL_STATE: TableState = {
   options: DEFAULT_OPTIONS,
   widths: [],
   columnIds: [],
+  selection: { ids: EMPTY_SELECTION, anchorIndex: null, anchorId: null },
 }
 
 const TABLE_DEFAULT_STYLES: CSSProperties = {
@@ -126,17 +191,80 @@ const PLACEHOLDER_STYLES: CSSProperties = {
   display: 'none',
 }
 
-const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
-  ({ children, className, style, options, onDragEnd, renderPlaceholder }, ref) => {
+const TableProvider = forwardRef<HTMLDivElement, TableContainerProps>(
+  (
+    {
+      children,
+      className,
+      style,
+      options,
+      onDragEnd,
+      onDragStart,
+      onDragOver,
+      onDragCancel,
+      renderPlaceholder,
+      selectable = false,
+      selectedIds,
+      defaultSelectedIds,
+      onSelectionChange,
+      showDragCount = true,
+      ...rest
+    },
+    ref,
+  ) => {
     const localRef = useRef<HTMLDivElement>(null)
     const cloneRef = useRef(null)
     const placeholderRef = useRef<HTMLDivElement>(null)
 
     useImperativeHandle(ref, () => localRef.current!, [])
 
-    const [store] = useState(() => createTableStore(tableReducer, INITIAL_STATE))
-    const state = useSyncExternalStore(store.subscribe, store.getState)
+    const [store] = useState(() => {
+      const seed = selectedIds ?? defaultSelectedIds
+      const initial: TableState = seed
+        ? {
+            ...INITIAL_STATE,
+            selection: { ids: new Set(seed.map(String)), anchorIndex: null, anchorId: null },
+          }
+        : INITIAL_STATE
+      return createTableStore(tableReducer, initial)
+    })
+    const state = useSyncExternalStore(store.subscribe, store.getState, store.getState)
     const dispatch = store.dispatch
+
+    // --- Selection: controlled (selectedIds given) or uncontrolled ---
+    const isControlled = selectedIds !== undefined
+    const isControlledRef = useRef(isControlled)
+    const onSelectionChangeRef = useRef(onSelectionChange)
+    useIsomorphicLayoutEffect(() => {
+      isControlledRef.current = isControlled
+      onSelectionChangeRef.current = onSelectionChange
+    })
+
+    useEffect(() => {
+      if (!isControlled) return
+      dispatch({ type: 'setSelection', value: { ids: new Set(selectedIds!.map(String)) } })
+    }, [isControlled, selectedIds, dispatch])
+
+    // Stable identity so it never churns the drag callbacks.
+    const commitSelection = useCallback(
+      (ids: string[], anchorIndex?: number | null, anchorId?: string | null) => {
+        if (anchorIndex === null && anchorId === undefined) anchorId = null // clearing the anchor
+        const next = new Set(ids)
+        const changed = !sameIdSet(store.getState().selection.ids, next)
+        if (isControlledRef.current) {
+          // Ids come back through the `selectedIds` prop; only the anchor is library-internal.
+          if (anchorIndex !== undefined)
+            dispatch({
+              type: 'setSelection',
+              value: { ids: store.getState().selection.ids, anchorIndex, anchorId },
+            })
+        } else {
+          dispatch({ type: 'setSelection', value: { ids: next, anchorIndex, anchorId } })
+        }
+        if (changed) onSelectionChangeRef.current?.(ids)
+      },
+      [dispatch, store],
+    )
 
     useEffect(() => {
       dispatch({ type: 'setRef', refName: 'tableRef', value: localRef })
@@ -170,10 +298,18 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
     }, [localRef, dispatch])
 
     useEffect(() => {
-      if (options) {
-        dispatch({ type: 'setOptions', value: options })
-      }
-    }, [options, dispatch])
+      // a range left out (or passed as undefined) keeps the default "no restriction"
+      dispatch({
+        type: 'setOptions',
+        value: {
+          ...(options ?? {}), // anything else a JS consumer passes keeps flowing through, as in 2.x
+          rowDragRange: options?.rowDragRange ?? DEFAULT_OPTIONS.rowDragRange,
+          columnDragRange: options?.columnDragRange ?? DEFAULT_OPTIONS.columnDragRange,
+          selectable,
+          showDragCount,
+        },
+      })
+    }, [options, selectable, showDragCount, dispatch])
 
     const { dragStart, touchStart } = useDragContextEvents(
       state.refs,
@@ -181,7 +317,9 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
       dispatch,
       state.dragType,
       state.options,
-      onDragEnd,
+      { onDragStart, onDragOver, onDragEnd, onDragCancel },
+      store.getState,
+      commitSelection,
     )
 
     // transform is set directly via DOM in useDragContextEvents
@@ -220,7 +358,7 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
       <StoreContext.Provider value={store}>
         <Styles className={state.dragged.isDragging ? 'is-dragging' : ''}>
           <div
-            id="portalroot"
+            data-rtdnd="clone"
             style={{
               ...cloneStyles,
               visibility: state.dragged.isDragging ? 'visible' : 'hidden',
@@ -235,6 +373,7 @@ const TableProvider = forwardRef<HTMLDivElement, TableProviderProps>(
             )}
           </div>
           <div
+            {...rest}
             data-contextid="context"
             ref={localRef}
             onMouseDown={dragStart}

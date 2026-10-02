@@ -1,23 +1,27 @@
-import React, { useMemo, memo } from 'react'
+import * as React from 'react'
+import { useMemo, memo } from 'react'
 import { useTableStore } from './TableContainer/useTable'
 
-interface RowCellProps {
+/** Props of `RowCell`. Other HTML attributes (`aria-*`, `data-*`, `title`, …) go on the cell's
+ *  `[data-rtdnd="td"]` element. */
+export interface RowCellProps extends Omit<
+  React.HTMLAttributes<HTMLDivElement>,
+  'children' | 'style' | 'className'
+> {
   children?: React.ReactNode
+  /** The column's position: the cell takes that column's width. */
   index: number
   style?: React.CSSProperties
   className?: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [propName: string]: any
 }
 
-const RowCell: React.FC<RowCellProps> = memo(({ children, style, className, ...props }) => {
-  const { index } = props
+const RowCell: React.FC<RowCellProps> = memo(({ children, index, style, className, ...rest }) => {
   const widths = useTableStore((s) => s.widths)
   const defaultSizing = useTableStore((s) => s.options.defaultSizing)
   const rowCellWidth = useMemo(() => widths[index] ?? defaultSizing, [widths, index, defaultSizing])
 
-  // opacity is managed via direct DOM in useDragContextEvents.beginDrag/finalizeDrop
-  // so RowCell no longer re-renders on column drag start/end.
+  // a column drag hides and shifts this cell with direct DOM writes (useHiddenElements,
+  // useShiftTransforms), so a drag start or end never re-renders it
   const styles = useMemo(
     () => ({
       display: 'inline-flex',
@@ -32,7 +36,7 @@ const RowCell: React.FC<RowCellProps> = memo(({ children, style, className, ...p
   )
 
   return (
-    <div data-rtdnd="td" className={className} style={styles} data-col-index={index}>
+    <div {...rest} data-rtdnd="td" className={className} style={styles} data-col-index={index}>
       {children}
     </div>
   )

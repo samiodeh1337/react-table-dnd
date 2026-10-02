@@ -7,7 +7,15 @@
  * Tailwind className usage.
  */
 import React, { useCallback, useState, useMemo } from 'react'
-import { TableContainer, TableHeader, ColumnCell, TableBody, BodyRow, RowCell } from '../Components'
+import {
+  TableContainer,
+  TableHeader,
+  ColumnCell,
+  TableBody,
+  BodyRow,
+  RowCell,
+  moveRowsById,
+} from '../Components'
 import { generateRows, arrayMove } from './example-data'
 import type { DragEndResult } from '../Components'
 
@@ -44,15 +52,22 @@ const INIT_COLS = [
   { id: 'email', title: 'Email', width: 200 },
 ]
 
+// selected rows get an inset ring (an outline paints above the cells)
+const SELECTED_ROW: React.CSSProperties = { outline: '2px solid #6366f1', outlineOffset: -2 }
+
 const TailwindExample = () => {
   const [data, setData] = useState(() => generateRows(60))
   const [cols, setCols] = useState(INIT_COLS)
+  const [selected, setSelected] = useState<string[]>([])
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 
   const handleDragEnd = useCallback((r: DragEndResult) => {
-    if (r.sourceIndex === r.targetIndex) return
-    if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-    else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+    if (r.dragType === 'row') {
+      // r.selectedIds = every row that moved (one id for a plain drag), r.insertIndex = the gap
+      setData((p) => moveRowsById(p, r.selectedIds!, r.insertIndex!))
+      return
+    }
+    if (r.sourceIndex !== r.targetIndex) setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
   }, [])
 
   return (
@@ -63,6 +78,9 @@ const TailwindExample = () => {
       <TableContainer
         options={options}
         onDragEnd={handleDragEnd}
+        selectable
+        selectedIds={selected}
+        onSelectionChange={setSelected}
         style={{
           height: 420,
           borderRadius: 12,
@@ -80,7 +98,7 @@ const TailwindExample = () => {
         </TableHeader>
         <TableBody>
           {data.map((row, ri) => (
-            <BodyRow key={row.id} id={row.id} index={ri}>
+            <BodyRow key={row.id} id={row.id} index={ri} selectedStyle={SELECTED_ROW}>
               {cols.map((col, ci) => (
                 <RowCell key={col.id} index={ci} style={tdStyle(ri)}>
                   {row[col.id]}

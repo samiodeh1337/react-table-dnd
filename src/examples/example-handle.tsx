@@ -10,6 +10,7 @@ import {
   BodyRow,
   RowCell,
   DragHandle,
+  moveRowsById,
 } from '../Components'
 import { generateRows, arrayMove } from './example-data'
 import type { DragEndResult } from '../Components'
@@ -69,15 +70,22 @@ const handleStyle: React.CSSProperties = {
   borderRadius: 4,
 }
 
+// selected rows get an inset ring (an outline paints above the cells)
+const SELECTED_ROW: React.CSSProperties = { outline: '2px solid #6366f1', outlineOffset: -2 }
+
 const DragHandleExample = () => {
   const [data, setData] = useState(() => generateRows(50))
   const [cols, setCols] = useState(INIT_COLS)
+  const [selected, setSelected] = useState<string[]>([])
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 
   const handleDragEnd = useCallback((r: DragEndResult) => {
-    if (r.sourceIndex === r.targetIndex) return
-    if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-    else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+    if (r.dragType === 'row') {
+      // r.selectedIds = every row that moved (one id for a plain drag), r.insertIndex = the gap
+      setData((p) => moveRowsById(p, r.selectedIds!, r.insertIndex!))
+      return
+    }
+    if (r.sourceIndex !== r.targetIndex) setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
   }, [])
 
   return (
@@ -88,12 +96,15 @@ const DragHandleExample = () => {
         </h3>
         <p style={{ margin: 0, fontSize: 12, color: '#8b8b94' }}>
           Only the <span style={{ color: '#94a3b8' }}>&#x2847;</span> grip icon starts a drag.
-          Clicking elsewhere in the row/column does nothing.
+          Clicking elsewhere in a row selects it (⌘/Ctrl-click to add, ⇧-click for a range).
         </p>
       </div>
       <TableContainer
         options={options}
         onDragEnd={handleDragEnd}
+        selectable
+        selectedIds={selected}
+        onSelectionChange={setSelected}
         renderPlaceholder={() => (
           <div
             style={{
@@ -119,7 +130,7 @@ const DragHandleExample = () => {
         </TableHeader>
         <TableBody>
           {data.map((row, ri) => (
-            <BodyRow key={row.id} id={row.id} index={ri}>
+            <BodyRow key={row.id} id={row.id} index={ri} selectedStyle={SELECTED_ROW}>
               {cols.map((col, ci) => (
                 <RowCell key={col.id} index={ci} style={ci === 0 ? tdFirst : td}>
                   {ci === 0 && (

@@ -9,7 +9,10 @@ export default defineConfig({
     react(),
     dts({
       include: ['src/Components/**/*', 'src/hooks/**/*'],
-      insertTypesEntry: true,
+      exclude: ['src/**/__tests__/**', 'src/**/*.test.ts'],
+      // one self-contained index.d.ts: no extension-less relative imports, so it resolves under
+      // every moduleResolution (node16/nodenext included); finish-build copies it to index.d.cts
+      rollupTypes: true,
       tsconfigPath: './tsconfig.app.json',
     }),
   ],
@@ -17,11 +20,12 @@ export default defineConfig({
     lib: {
       entry: resolve(__dirname, 'src/Components/index.ts'),
       formats: ['es', 'cjs'],
-      fileName: (format) => `index.${format}.js`,
+      // "type": "module" makes every .js file ESM, so the CommonJS build must be .cjs
+      fileName: (format) => (format === 'cjs' ? 'index.cjs' : 'index.es.js'),
       cssFileName: 'react-table-dnd',
     },
     rollupOptions: {
-      external: ['react', 'react-dom', 'react/jsx-runtime', 'styled-components', 'classnames'],
+      external: ['react', 'react-dom', 'react/jsx-runtime'],
       output: {
         globals: {
           react: 'React',

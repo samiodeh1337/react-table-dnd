@@ -1,35 +1,29 @@
-import React, {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  forwardRef,
-  type ReactNode,
-  useCallback,
-} from 'react'
+import * as React from 'react'
+import { useEffect, useImperativeHandle, useMemo, useRef, forwardRef, type ReactNode } from 'react'
 import { useTableStore, useTableDispatch } from './TableContainer/useTable'
 import useAutoScroll from '../hooks/useAutoScroll'
+import useIsomorphicLayoutEffect from '../hooks/useIsomorphicLayoutEffect'
 
-interface TableHeaderProps {
+/** Props of `TableHeader`. */
+export interface TableHeaderProps extends Omit<
+  React.HTMLAttributes<HTMLDivElement>,
+  'children' | 'className' | 'style'
+> {
   children: ReactNode
   style?: React.CSSProperties
   className?: string
 }
 
 const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(
-  ({ children, style, className }, ref) => {
-    const localRef = useRef(null)
-    const resolvedRef = ref || localRef
+  ({ children, style, className, onScroll, ...rest }, ref) => {
+    // Always our own ref (the drag engine reads it); a consumer ref gets the same element.
+    const localRef = useRef<HTMLDivElement>(null)
+    useImperativeHandle(ref, () => localRef.current!, [])
 
     const bodyScrollBarWidth = useTableStore((s) => s.bodyScrollBarWidth)
     const isDragging = useTableStore((s) => s.dragged.isDragging)
     const refs = useTableStore((s) => s.refs)
     const dispatch = useTableDispatch()
-
-    const getRefCurrent = useCallback((ref: typeof resolvedRef): HTMLDivElement | null => {
-      if ('current' in ref) return ref.current
-      return null // callback refs don't have .current
-    }, [])
 
     useEffect(() => {
       if (localRef.current) {
@@ -61,8 +55,8 @@ const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(
       [bodyScrollBarWidth, isDragging, style],
     )
 
-    useLayoutEffect(() => {
-      const el = getRefCurrent(resolvedRef)
+    useIsomorphicLayoutEffect(() => {
+      const el = localRef.current
       if (el) {
         const widths: number[] = Array.from(
           el.querySelectorAll<HTMLElement>('[data-rtdnd="th"]'),
@@ -72,26 +66,29 @@ const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(
         })
         dispatch({ type: 'setWidths', value: widths })
       }
-    }, [children, dispatch, getRefCurrent, resolvedRef])
+    }, [children, dispatch])
 
-    useLayoutEffect(() => {
-      const el = getRefCurrent(resolvedRef)
+    useIsomorphicLayoutEffect(() => {
+      const el = localRef.current
       if (el) {
         const ids: string[] = Array.from(
           el.querySelectorAll<HTMLElement>('[data-rtdnd="draggable"]'),
         ).map((d) => d.getAttribute('data-id') || '')
         dispatch({ type: 'setColumnIds', value: ids })
       }
-    }, [children, dispatch, getRefCurrent, resolvedRef])
+    }, [children, dispatch])
 
     return (
-      <div data-rtdnd="header" className={className}>
+      <div {...rest} data-rtdnd="header" className={className}>
         <div
           data-rtdnd="thead"
           style={theadDefaultStyles}
           data-droppableid={'header'}
-          onScroll={HeaderScrollHandle}
-          ref={resolvedRef}
+          onScroll={(e) => {
+            HeaderScrollHandle(e)
+            onScroll?.(e) // the inner element scrolls, so a consumer's handler belongs here
+          }}
+          ref={localRef}
         >
           <div style={defaultStyles} data-rtdnd="tr">
             {children}

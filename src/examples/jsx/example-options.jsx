@@ -6,6 +6,7 @@ import {
   TableBody,
   BodyRow,
   RowCell,
+  moveRowsById,
 } from 'react-table-dnd'
 
 function generateRows(count) {
@@ -70,23 +71,33 @@ const INIT_COLS = [
   { id: 'score', title: 'Score', width: 80 },
 ]
 
+// selected rows get an inset ring (an outline paints above the cells)
+const SELECTED_ROW = { outline: '2px solid #6366f1', outlineOffset: -2 }
+
 export default function OptionsExample() {
   const [data, setData] = useState(() => generateRows(100))
   const [cols, setCols] = useState(INIT_COLS)
+  const [selected, setSelected] = useState([])
 
   const options = useMemo(
     () => ({
       columnDragRange: { start: LOCKED_COLS },
-      rowDragRange: { start: LOCKED_ROWS_START, end: data.length - LOCKED_ROWS_END },
+      rowDragRange: { start: LOCKED_ROWS_START, end: data.length - LOCKED_ROWS_END - 1 }, // end is inclusive
     }),
     [data.length],
   )
 
-  const handleDragEnd = useCallback(({ sourceIndex, targetIndex, dragType }) => {
-    if (sourceIndex === targetIndex) return
-    if (dragType === 'row') setData((p) => arrayMove(p, sourceIndex, targetIndex))
-    else setCols((p) => arrayMove(p, sourceIndex, targetIndex))
-  }, [])
+  const handleDragEnd = useCallback(
+    ({ sourceIndex, targetIndex, dragType, selectedIds, insertIndex }) => {
+      if (dragType === 'row') {
+        // selectedIds = every row that moved (one id for a plain drag), insertIndex = the gap
+        setData((p) => moveRowsById(p, selectedIds, insertIndex))
+        return
+      }
+      if (sourceIndex !== targetIndex) setCols((p) => arrayMove(p, sourceIndex, targetIndex))
+    },
+    [],
+  )
 
   const isLocked = (ri) => ri < LOCKED_ROWS_START || ri >= data.length - LOCKED_ROWS_END
 
@@ -94,6 +105,9 @@ export default function OptionsExample() {
     <TableContainer
       options={options}
       onDragEnd={handleDragEnd}
+      selectable
+      selectedIds={selected}
+      onSelectionChange={setSelected}
       style={{ height: 400, border: '1px solid #3b2d6e', borderRadius: 8 }}
     >
       <TableHeader>
@@ -119,7 +133,7 @@ export default function OptionsExample() {
       </TableHeader>
       <TableBody>
         {data.map((row, ri) => (
-          <BodyRow key={row.id} id={row.id} index={ri}>
+          <BodyRow key={row.id} id={row.id} index={ri} selectedStyle={SELECTED_ROW}>
             {cols.map((col, ci) => (
               <RowCell
                 key={col.id}

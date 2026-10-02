@@ -1,0 +1,224 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/* only the docs site is scanned; the library's own components use no utilities */
+@source not '../Components';
+@source not '../hooks';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(0.985 0.002 270);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.955 0.004 270);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.955 0.004 270);
+  --muted-foreground: oklch(0.5 0.01 270);
+  --accent: oklch(0.945 0.006 270);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.885 0.006 270);
+  --input: oklch(0.86 0.008 270);
+  --ring: var(--brand); /* focus rings in the brand colour: at least 3:1 in both themes */
+  /* the library's own colour: links, the active page, the logo */
+  --brand: oklch(0.511 0.262 276.966);
+  --brand-soft: oklch(0.511 0.262 276.966 / 8%);
+  --code: oklch(0.975 0.003 270);
+  --code-foreground: oklch(0.205 0 0);
+  --hero-dot: oklch(0.55 0.02 276 / 18%);
+  --hero-glow-a: oklch(0.72 0.14 277 / 22%);
+  --hero-glow-b: oklch(0.8 0.1 200 / 18%);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 14%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: var(--brand);
+  --brand: oklch(0.673 0.182 276.935);
+  --brand-soft: oklch(0.673 0.182 276.935 / 12%);
+  --code: oklch(0.18 0 0);
+  --code-foreground: oklch(0.922 0 0);
+  --hero-dot: oklch(1 0 0 / 9%);
+  --hero-glow-a: oklch(0.55 0.2 277 / 35%);
+  --hero-glow-b: oklch(0.6 0.12 210 / 22%);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-code: var(--code);
+  --color-code-foreground: var(--code-foreground);
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    scroll-padding-top: 5rem;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+  }
+}
+
+/* ── syntax highlighting (highlight.js), following the theme ── */
+.hljs-keyword,
+.hljs-operator,
+.hljs-selector-tag {
+  color: oklch(0.52 0.2 300);
+}
+.hljs-title,
+.hljs-title.function_,
+.hljs-title.class_,
+.hljs-name {
+  color: oklch(0.5 0.17 250);
+}
+.hljs-string,
+.hljs-template-string,
+.hljs-attr,
+.hljs-attribute {
+  color: oklch(0.5 0.14 150);
+}
+.hljs-number,
+.hljs-literal,
+.hljs-built_in {
+  color: oklch(0.55 0.16 50);
+}
+.hljs-comment {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.hljs-tag,
+.hljs-punctuation {
+  color: var(--muted-foreground);
+}
+.hljs-variable,
+.hljs-params,
+.hljs-property {
+  color: var(--code-foreground);
+}
+.dark .hljs-keyword,
+.dark .hljs-operator,
+.dark .hljs-selector-tag {
+  color: oklch(0.76 0.14 300);
+}
+.dark .hljs-title,
+.dark .hljs-title.function_,
+.dark .hljs-title.class_,
+.dark .hljs-name {
+  color: oklch(0.78 0.12 250);
+}
+.dark .hljs-string,
+.dark .hljs-template-string,
+.dark .hljs-attr,
+.dark .hljs-attribute {
+  color: oklch(0.8 0.13 150);
+}
+.dark .hljs-number,
+.dark .hljs-literal,
+.dark .hljs-built_in {
+  color: oklch(0.8 0.13 60);
+}
+
+/* ── home page table ──
+   Row colours must be opaque: the group drag card copies the row's background. */
+.home-demo-row {
+  background: var(--card);
+  transition: background-color 120ms;
+}
+.home-demo-row:hover {
+  background: color-mix(in oklab, var(--muted) 55%, var(--card));
+}
+.home-demo-row-selected,
+.home-demo-row-selected:hover {
+  background: color-mix(
+    in oklab,
+    var(--brand) 7%,
+    var(--card)
+  ); /* oklab: oklch would swing the hue through pink */
+}
+/* the selection stripe sits on the first cell only, so a column drag never copies it */
+.home-demo-row-selected > [data-col-index='0'] {
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+.dark .home-demo-row-selected,
+.dark .home-demo-row-selected:hover {
+  background: color-mix(in oklab, var(--brand) 16%, var(--card));
+}
+/* the row being dragged: lifted off the table */
+.home-demo [data-flexitable-root] [data-rtdnd='clone'],
+.docs-table-lift [data-flexitable-root] [data-rtdnd='clone'] {
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 1px var(--border),
+    0 14px 32px -10px oklch(0 0 0 / 30%),
+    0 4px 10px -4px oklch(0 0 0 / 18%);
+}
+.dark .home-demo [data-flexitable-root] [data-rtdnd='clone'],
+.dark .docs-table-lift [data-flexitable-root] [data-rtdnd='clone'] {
+  box-shadow:
+    0 0 0 1px oklch(1 0 0 / 12%),
+    0 16px 40px -8px oklch(0 0 0 / 70%);
+}
+/* row checkboxes: a clearer edge in light mode, the brand colour when ticked */
+.home-demo [data-slot='checkbox'] {
+  border-color: color-mix(in oklab, var(--foreground) 28%, transparent);
+}
+.home-demo [data-slot='checkbox'][data-state='checked'],
+.home-demo [data-slot='checkbox'][data-state='indeterminate'] {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: white;
+}
+.dark .home-demo [data-slot='checkbox'][data-state='checked'],
+.dark .home-demo [data-slot='checkbox'][data-state='indeterminate'] {
+  color: oklch(0.145 0 0); /* the dark-mode brand is light: dark marks read better */
+}

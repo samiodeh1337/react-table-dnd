@@ -1,8 +1,16 @@
 /**
  * Example: Style overrides — inline styles and CSS className on every component.
  */
-import React, { useCallback, useState, useMemo } from 'react'
-import { TableContainer, TableHeader, ColumnCell, TableBody, BodyRow, RowCell } from '../Components'
+import { useCallback, useState, useMemo } from 'react'
+import {
+  TableContainer,
+  TableHeader,
+  ColumnCell,
+  TableBody,
+  BodyRow,
+  RowCell,
+  moveRowsById,
+} from '../Components'
 import { generateRows, arrayMove } from './example-data'
 import type { DragEndResult } from '../Components'
 
@@ -18,12 +26,16 @@ const INIT_COLS = [
 const StylingExample = () => {
   const [data, setData] = useState(() => generateRows(60))
   const [cols, setCols] = useState(INIT_COLS)
+  const [selected, setSelected] = useState<string[]>([])
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 
   const handleDragEnd = useCallback((r: DragEndResult) => {
-    if (r.sourceIndex === r.targetIndex) return
-    if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-    else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+    if (r.dragType === 'row') {
+      // r.selectedIds = every row that moved (one id for a plain drag), r.insertIndex = the gap
+      setData((p) => moveRowsById(p, r.selectedIds!, r.insertIndex!))
+      return
+    }
+    if (r.sourceIndex !== r.targetIndex) setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
   }, [])
 
   return (
@@ -39,6 +51,7 @@ const StylingExample = () => {
         .my-col:hover { background: #221f0e; }
         .my-body    {}
         .my-row     { display: flex; }
+        .my-row[data-selected='true'] { outline: 2px solid #6366f1; outline-offset: -2px; }
         .my-row:hover .my-cell { background: #1a1810; }
         .my-cell    { display: flex; align-items: center; height: 38px;
                       padding: 0 14px; font-size: 13px; color: #d6c896;
@@ -93,6 +106,9 @@ const StylingExample = () => {
       <TableContainer
         options={options}
         onDragEnd={handleDragEnd}
+        selectable
+        selectedIds={selected}
+        onSelectionChange={setSelected}
         className="my-table"
         // inline style can coexist with className
         style={{ height: 420, background: '#0f0e09' }}
