@@ -1,23 +1,30 @@
-name: 🚀 Release — Tag & Update Version
+name: 🚀 Release — Version & Tag
 
-# Runs when a release/* branch is merged into main.
-# Reads the version from package.json, updates index.html,
-# commits the change, tags main, and pushes — triggering
-# the publish and deploy-docs workflows.
+# Merging a release/X.Y.Z branch into main releases X.Y.Z: the version comes from the branch
+# name, so nothing is bumped by hand. The workflow sets package.json to that version, dates the
+# CHANGELOG heading, commits to main and pushes the tag vX.Y.Z, which runs the publish workflow
+# (gate, npm, GitHub Release, docs). It can also be run from the Actions tab with a version typed in.
 
 on:
   pull_request:
     types: [closed]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, e.g. 3.0.1'
+        required: true
 
 jobs:
-  tag:
-    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/')
+  release:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/'))
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Checkout
+      - name: Checkout main
         uses: actions/checkout@v4
         with:
           ref: main
@@ -29,40 +36,45 @@ jobs:
         with:
           node-version: 22
 
-      - name: Read version from package.json
+      - name: Version from the branch name (or the input)
         id: version
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "Version: $VERSION"
-          if [ -z "$VERSION" ]; then echo "ERROR: version is empty" && exit 1; fi
+          if [ -n "$INPUT_VERSION" ]; then VERSION="$INPUT_VERSION"; else VERSION="${HEAD_REF#release/}"; fi
+          VERSION="${VERSION#v}"
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "ERROR: '$VERSION' is not a version. Name the branch release/X.Y.Z." && exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "v$VERSION" >/dev/null 2>&1; then
+            echo "ERROR: tag v$VERSION already exists" && exit 1
+          fi
+          echo "Releasing $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Update version in index.html
+      - name: Set package.json version and date the changelog
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          sed -i "s/\"softwareVersion\": \"[^\"]*\"/\"softwareVersion\": \"$VERSION\"/" index.html
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          # the heading "## 3.0.0 (unreleased …)" or "## Unreleased" becomes "## 3.0.0 (2026-10-02)"
+          TODAY=$(date -u +%F) VERSION="$VERSION" perl -i -pe \
+            's/^## (?=.*unreleased)(?:v?\Q$ENV{VERSION}\E|\[?Unreleased\]?).*$/## $ENV{VERSION} ($ENV{TODAY})/i' CHANGELOG.md
 
-      - name: Check for changes
-        id: diff
-        run: |
-          if git diff --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Commit version update
-        if: steps.diff.outputs.changed == 'true'
+      - name: Commit to main
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}
-          git add index.html
-          git commit -m "chore: update version to ${{ steps.version.outputs.version }}"
-          git push
+          if git diff --quiet; then
+            echo "package.json and CHANGELOG.md already at ${{ steps.version.outputs.version }}"
+          else
+            git add package.json package-lock.json CHANGELOG.md
+            git commit -m "release: ${{ steps.version.outputs.version }}"
+            git push origin main
+          fi
 
-      - name: Create and push tag
+      - name: Tag
         run: |
-          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}
           git tag "v${{ steps.version.outputs.version }}"
           git push origin "v${{ steps.version.outputs.version }}"
