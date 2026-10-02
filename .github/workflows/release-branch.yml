@@ -1,0 +1,67 @@
+name: 🏷️ Release branch — Version bump & PR
+
+# Creating a release/X.Y.Z branch (from the UI or `git push`) prepares the release: the version
+# comes from the branch name, package.json is set to it, the CHANGELOG heading gets today's date,
+# the change is committed to the branch, and a PR to main is opened. Merging that PR runs the
+# Release workflow, which tags vX.Y.Z and publishes. Runs on the branch's first push only.
+
+on:
+  push:
+    branches:
+      - 'release/**'
+
+jobs:
+  prepare:
+    if: github.event.created
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout the release branch
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Version from the branch name
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#release/}"
+          VERSION="${VERSION#v}"
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "ERROR: '$VERSION' is not a version. Name the branch release/X.Y.Z." && exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "v$VERSION" >/dev/null 2>&1; then
+            echo "ERROR: v$VERSION is already released" && exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set package.json version and date the changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          # the heading "## 3.0.0 (unreleased …)" or "## Unreleased" becomes "## 3.0.0 (2026-10-02)"
+          TODAY=$(date -u +%F) VERSION="$VERSION" perl -i -pe \
+            's/^## (?=.*unreleased)(?:v?\Q$ENV{VERSION}\E|\[?Unreleased\]?).*$/## $ENV{VERSION} ($ENV{TODAY})/i' CHANGELOG.md
+
+      - name: Commit to the release branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json CHANGELOG.md
+          git diff --cached --quiet && { echo "already at ${{ steps.version.outputs.version }}"; exit 0; }
+          git commit -m "release: ${{ steps.version.outputs.version }}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Open the PR
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh pr create --base main --head "$GITHUB_REF_NAME" \
+            --title "Release ${{ steps.version.outputs.version }}" \
+            --body "Version ${{ steps.version.outputs.version }} and the changelog date, set from the branch name. Merging tags v${{ steps.version.outputs.version }} and publishes to npm, GitHub Releases and the docs site." \
+            || echo "PR already exists"
