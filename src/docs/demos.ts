@@ -14,6 +14,7 @@ import TailwindExample from '../examples/example-tailwind'
 import ScrollCellExample from '../examples/example-scrollcell'
 import WidthsExample from '../examples/example-widths'
 import TanStackExample from '../examples/example-tanstack'
+import SortableListExample from '../examples/example-list'
 
 // Raw source imports for code preview (TSX — from real example files)
 import srcFixedTsx from '../examples/example-fixed.tsx?raw'
@@ -32,6 +33,7 @@ import srcScrollCellTsx from '../examples/example-scrollcell.tsx?raw'
 import srcScrollCellJsx from '../examples/jsx/example-scrollcell.jsx?raw'
 import srcWidthsTsx from '../examples/example-widths.tsx?raw'
 import srcTanStackTsx from '../examples/example-tanstack.tsx?raw'
+import srcListTsx from '../examples/example-list.tsx?raw'
 import srcDataTsx from '../examples/example-data.ts?raw'
 
 // Raw source imports for code preview (JSX — standalone copies)
@@ -49,6 +51,7 @@ import srcStyledCompJsx from '../examples/jsx/example-styledcomp.jsx?raw'
 import srcTailwindJsx from '../examples/jsx/example-tailwind.jsx?raw'
 import srcWidthsJsx from '../examples/jsx/example-widths.jsx?raw'
 import srcTanStackJsx from '../examples/jsx/example-tanstack.jsx?raw'
+import srcListJsx from '../examples/jsx/example-list.jsx?raw'
 
 /** Add the stylesheet import after the library import (every copied demo needs it). */
 function withStyles(raw: string): string {
@@ -88,6 +91,13 @@ export const EXAMPLES = [
     component: CustomStyledExample,
     tsx: prepareTsx(srcStyledTsx),
     jsx: withStyles(srcStyledJsx),
+  },
+  {
+    id: 'list',
+    label: 'Sortable lists',
+    component: SortableListExample,
+    tsx: prepareTsx(srcListTsx),
+    jsx: withStyles(srcListJsx),
   },
   {
     id: 'fixed',

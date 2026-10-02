@@ -173,6 +173,10 @@
 .home-demo-row {
   background: var(--card);
   transition: background-color 120ms;
+  /* the background is on the row, not the cells: inside the drag card the row would be stretched
+     to the card's visible width and its background cut off when the table is scrolled sideways */
+  width: max-content;
+  min-width: 100%;
 }
 .home-demo-row:hover {
   background: color-mix(in oklab, var(--muted) 55%, var(--card));
