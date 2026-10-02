@@ -1,5 +1,5 @@
 # Changelog
-## 3.0.0 (unreleased — set the date when publishing)
+## 3.0.0 (2026-10-02)
 
 ### Breaking / behaviour changes
 
