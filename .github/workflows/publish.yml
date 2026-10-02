@@ -1,4 +1,8 @@
-name: 📦 Publish to npm
+name: 📦 Publish — npm, GitHub Release, docs
+
+# Runs on a vX.Y.Z tag (pushed by the release workflow). Three jobs, each needing the one before:
+# the full gate, then npm publish + the GitHub Release, then the docs deploy. A failed publish
+# stops the docs from deploying, so the site never describes a version that is not on npm.
 
 on:
   push:
@@ -36,6 +40,12 @@ jobs:
       - name: Build docs
         run: npm run build:docs
 
+      - name: Tag matches package.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "$PKG" ]; then echo "ERROR: tag v$TAG but package.json is $PKG" && exit 1; fi
+
   publish:
     needs: ci
     runs-on: ubuntu-latest
@@ -68,3 +78,44 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+
+  deploy-docs:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: 'pages'
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build docs
+        run: npm run build:docs
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './docs-dist'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

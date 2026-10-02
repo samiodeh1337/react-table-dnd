@@ -1,9 +1,9 @@
-name: 📚 Deploy Docs to GitHub Pages
+name: 📚 Deploy Docs (manual)
+
+# Redeploys the docs site from main without a release, for docs-only fixes. Run it from the
+# Actions tab. A release deploys the docs itself, as the last job of the publish workflow.
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
 
 permissions:
