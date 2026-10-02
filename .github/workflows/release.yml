@@ -1,22 +1,18 @@
-name: 🚀 Release — Version & Tag
+name: 🚀 Release — Tag
 
-# Merging a release/X.Y.Z branch into main releases X.Y.Z: the version comes from the branch
-# name, so nothing is bumped by hand. The workflow sets package.json to that version, dates the
-# CHANGELOG heading, commits to main and pushes the tag vX.Y.Z, which runs the publish workflow
-# (gate, npm, GitHub Release, docs). It can also be run from the Actions tab with a version typed in.
+# Merging a release/X.Y.Z PR into main tags main as vX.Y.Z, which runs the publish workflow
+# (gate, npm, GitHub Release, docs). The version bump itself arrived with the merge: the
+# release-branch workflow put it on the branch when the branch was created. Can also be run
+# from the Actions tab, which tags main with whatever version package.json has.
 
 on:
   pull_request:
     types: [closed]
     branches: [main]
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to release, e.g. 3.0.1'
-        required: true
 
 jobs:
-  release:
+  tag:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/'))
@@ -31,48 +27,27 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GH_PAT }}
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Version from the branch name (or the input)
+      - name: Version from package.json (must match the branch name)
         id: version
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          INPUT_VERSION: ${{ github.event.inputs.version }}
         run: |
-          if [ -n "$INPUT_VERSION" ]; then VERSION="$INPUT_VERSION"; else VERSION="${HEAD_REF#release/}"; fi
-          VERSION="${VERSION#v}"
-          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
-            echo "ERROR: '$VERSION' is not a version. Name the branch release/X.Y.Z." && exit 1
+          VERSION=$(node -p "require('./package.json').version")
+          if [ -n "$HEAD_REF" ]; then
+            FROM_BRANCH="${HEAD_REF#release/}"; FROM_BRANCH="${FROM_BRANCH#v}"
+            if [ "$FROM_BRANCH" != "$VERSION" ]; then
+              echo "ERROR: branch says $FROM_BRANCH but package.json on main says $VERSION" && exit 1
+            fi
           fi
           if git ls-remote --exit-code --tags origin "v$VERSION" >/dev/null 2>&1; then
             echo "ERROR: tag v$VERSION already exists" && exit 1
           fi
-          echo "Releasing $VERSION"
+          echo "Tagging v$VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Set package.json version and date the changelog
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
-          # the heading "## 3.0.0 (unreleased …)" or "## Unreleased" becomes "## 3.0.0 (2026-10-02)"
-          TODAY=$(date -u +%F) VERSION="$VERSION" perl -i -pe \
-            's/^## (?=.*unreleased)(?:v?\Q$ENV{VERSION}\E|\[?Unreleased\]?).*$/## $ENV{VERSION} ($ENV{TODAY})/i' CHANGELOG.md
-
-      - name: Commit to main
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}
-          if git diff --quiet; then
-            echo "package.json and CHANGELOG.md already at ${{ steps.version.outputs.version }}"
-          else
-            git add package.json package-lock.json CHANGELOG.md
-            git commit -m "release: ${{ steps.version.outputs.version }}"
-            git push origin main
-          fi
 
       - name: Tag
         run: |
