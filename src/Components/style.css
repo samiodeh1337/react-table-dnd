@@ -1,6 +1,7 @@
 /* touch-action: scoped to library root — only draggable elements are affected,
    scrollable cell content and other touch interactions remain unblocked */
-[data-flexitable-root] [data-id]:not(:has([data-drag-handle])) {
+[data-flexitable-root]
+  [data-rtdnd='draggable']:not([data-disabled='true']):not(:has([data-drag-handle])) {
   touch-action: none;
 }
 
@@ -9,7 +10,7 @@
 }
 
 /* prevent native mobile long-press text selection on draggable elements */
-[data-flexitable-root] [data-id] {
+[data-flexitable-root] [data-rtdnd='draggable'] {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
@@ -69,4 +70,79 @@
 [data-flexitable-root]:not(.is-dragging) [data-drag-handle] {
   cursor: -webkit-grab;
   cursor: grab;
+}
+
+/* ---- multi-select group drag: compact stacked card ---- */
+
+/* the clone may overflow (ghost cards + badge stick out); the row itself is clipped in a scroller */
+[data-flexitable-root] [data-rtdnd='clone'][data-group-size] {
+  overflow: visible !important;
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.28),
+    0 2px 6px rgba(0, 0, 0, 0.18) !important;
+}
+
+[data-flexitable-root] [data-rtdnd='clone-row-scroller'] {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--rtdnd-card-bg, #fff);
+}
+
+/* ghost cards peeking out below the row, tinted from the row's own background */
+[data-flexitable-root] [data-rtdnd='drag-stack'] {
+  position: absolute;
+  z-index: 0;
+  top: calc(var(--i) * 6px);
+  left: calc(var(--i) * 10px);
+  right: calc(var(--i) * 10px);
+  height: 100%;
+  background: var(--rtdnd-card-bg, #fff);
+  /* nudge toward gray so the ghosts stand out on dark and light rows alike */
+  background: color-mix(in srgb, var(--rtdnd-card-bg, #fff) 78%, #8a8a99);
+  /* a light + dark hairline so the edge reads on any theme */
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 4px 12px rgba(0, 0, 0, 0.3);
+  /* the back card is a shade deeper rather than see-through, so rows never show through it */
+  background: color-mix(in srgb, var(--rtdnd-card-bg, #fff) calc(88% - var(--i) * 10%), #8a8a99);
+  pointer-events: none;
+}
+
+/* count badge, placed next to the grab point by beginDrag (restyle freely, or hide it with
+   `showDragCount={false}`) */
+[data-flexitable-root] [data-rtdnd='drag-count'] {
+  position: absolute;
+  z-index: 2;
+  top: -9px;
+  left: 0;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #6366f1;
+  color: #fff;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  /* ring in the card's own colour + soft shadow, without affecting the badge's box size */
+  box-shadow:
+    0 0 0 2px var(--rtdnd-card-bg, #fff),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
 }

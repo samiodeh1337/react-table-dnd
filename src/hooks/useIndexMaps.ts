@@ -1,5 +1,5 @@
 // builds O(1) index maps (row/col/cell) once at drag start, rebuilt on auto-scroll invalidation
-import { useCallback, useRef } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import type { HookRefs } from './types'
 import type { IndexMap } from './useShiftTransforms'
 
@@ -99,36 +99,38 @@ const useIndexMaps = (refs: HookRefs): IndexMapsResult => {
     [buildColumnMap, buildCellMap],
   )
 
-  // checks first entry only — good enough for virtual table node swaps
+  // any mapped node that left the DOM (virtual remount) makes the maps stale; the maps only
+  // hold mounted rows/columns so this is a few dozen `isConnected` reads per frame
   const checkStaleness = useCallback(() => {
     if (mapStaleRef.current) return
-
-    if (rowIndexMapRef.current.size > 0) {
-      const firstEntry = rowIndexMapRef.current.values().next().value
-      if (firstEntry && !firstEntry.outer.isConnected) {
+    for (const { outer } of rowIndexMapRef.current.values()) {
+      if (!outer.isConnected) {
         mapStaleRef.current = true
         return
       }
     }
-    if (colIndexMapRef.current.size > 0) {
-      const firstEntry = colIndexMapRef.current.values().next().value
-      if (firstEntry && !firstEntry.outer.isConnected) {
+    for (const { outer } of colIndexMapRef.current.values()) {
+      if (!outer.isConnected) {
         mapStaleRef.current = true
+        return
       }
     }
   }, [])
 
-  return {
-    rowIndexMapRef,
-    colIndexMapRef,
-    cellIndexMapRef,
-    mapStaleRef,
-    buildMaps,
-    rebuildRowMap,
-    rebuildColumnMaps,
-    checkStaleness,
-    clearMaps,
-  }
+  return useMemo(
+    () => ({
+      rowIndexMapRef,
+      colIndexMapRef,
+      cellIndexMapRef,
+      mapStaleRef,
+      buildMaps,
+      rebuildRowMap,
+      rebuildColumnMaps,
+      checkStaleness,
+      clearMaps,
+    }),
+    [buildMaps, rebuildRowMap, rebuildColumnMaps, checkStaleness, clearMaps],
+  )
 }
 
 export default useIndexMaps

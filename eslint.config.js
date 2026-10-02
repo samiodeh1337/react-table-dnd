@@ -7,7 +7,7 @@ import eslintConfigPrettier from 'eslint-config-prettier'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'docs-dist', 'docs/v2']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -20,6 +20,12 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+  },
+  {
+    // docs site: shadcn/ui components and content modules export data next to components;
+    // the rule only affects hot reload
+    files: ['src/docs/**/*.{ts,tsx}'],
+    rules: { 'react-refresh/only-export-components': 'off' },
   },
   eslintConfigPrettier,
 ])

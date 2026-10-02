@@ -1,7 +1,7 @@
-import React, {
+import * as React from 'react'
+import {
   forwardRef,
   useEffect,
-  useLayoutEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -11,8 +11,13 @@ import React, {
 
 import { useTableStore, useTableDispatch } from './TableContainer/useTable'
 import useAutoScroll from '../hooks/useAutoScroll'
+import useIsomorphicLayoutEffect from '../hooks/useIsomorphicLayoutEffect'
 
-interface TableBodyProps {
+/** Props of `TableBody`. */
+export interface TableBodyProps extends Omit<
+  React.HTMLAttributes<HTMLDivElement>,
+  'children' | 'className' | 'style'
+> {
   children: ReactNode
   style?: React.CSSProperties
   className?: string
@@ -25,7 +30,7 @@ const BODY_STYLES: CSSProperties = {
 }
 
 const TableBody = forwardRef<HTMLDivElement, TableBodyProps>(
-  ({ children, style, className }, ref) => {
+  ({ children, style, className, onScroll, ...rest }, ref) => {
     const localRef = useRef<HTMLDivElement>(null)
     useImperativeHandle(ref, () => localRef.current!, [])
 
@@ -50,7 +55,7 @@ const TableBody = forwardRef<HTMLDivElement, TableBodyProps>(
       [isDragging, style],
     )
 
-    useLayoutEffect(() => {
+    useIsomorphicLayoutEffect(() => {
       if (localRef.current) {
         const clientWidth = localRef.current.clientWidth
         const offsetWidth = localRef.current.offsetWidth
@@ -60,12 +65,15 @@ const TableBody = forwardRef<HTMLDivElement, TableBodyProps>(
     }, [dispatch, localRef])
 
     return (
-      <div data-rtdnd="body" className={className} style={BODY_STYLES}>
+      <div {...rest} data-rtdnd="body" className={className} style={BODY_STYLES}>
         <div
           data-rtdnd="ibody"
           style={InnerBodyDefaultStyles}
           data-droppableid={'body'}
-          onScroll={BodyScrollHandle}
+          onScroll={(e) => {
+            BodyScrollHandle(e)
+            onScroll?.(e) // the inner element scrolls, so a consumer's handler belongs here
+          }}
           ref={localRef}
         >
           {children}

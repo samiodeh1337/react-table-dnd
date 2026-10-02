@@ -10,6 +10,7 @@ import {
   TableBody,
   BodyRow,
   RowCell,
+  moveRowsById,
 } from 'react-table-dnd'
 
 function arrayMove(arr, from, to) {
@@ -260,21 +261,34 @@ function Tag({ label }) {
   )
 }
 
+// selected rows get an inset ring (an outline paints above the cells)
+const SELECTED_ROW = { outline: '2px solid #6366f1', outlineOffset: -2 }
+
 export default function ScrollCellExample() {
   const [rows, setRows] = useState(ROWS)
   const [cols, setCols] = useState(COLS)
+  const [selected, setSelected] = useState([])
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 
-  const handleDragEnd = useCallback(({ sourceIndex, targetIndex, dragType }) => {
-    if (sourceIndex === targetIndex) return
-    if (dragType === 'row') setRows((p) => arrayMove(p, sourceIndex, targetIndex))
-    else setCols((p) => arrayMove(p, sourceIndex, targetIndex))
-  }, [])
+  const handleDragEnd = useCallback(
+    ({ sourceIndex, targetIndex, dragType, selectedIds, insertIndex }) => {
+      if (dragType === 'row') {
+        // selectedIds = every row that moved (one id for a plain drag), insertIndex = the gap
+        setRows((p) => moveRowsById(p, selectedIds, insertIndex))
+        return
+      }
+      if (sourceIndex !== targetIndex) setCols((p) => arrayMove(p, sourceIndex, targetIndex))
+    },
+    [],
+  )
 
   return (
     <TableContainer
       options={options}
       onDragEnd={handleDragEnd}
+      selectable
+      selectedIds={selected}
+      onSelectionChange={setSelected}
       renderPlaceholder={() => (
         <div
           style={{
@@ -297,7 +311,7 @@ export default function ScrollCellExample() {
       </TableHeader>
       <TableBody>
         {rows.map((row, ri) => (
-          <BodyRow key={row.id} id={row.id} index={ri}>
+          <BodyRow key={row.id} id={row.id} index={ri} selectedStyle={SELECTED_ROW}>
             {cols.map((col, ci) => (
               <RowCell key={col.id} index={ci} style={td}>
                 {col.id === 'notes' ? (

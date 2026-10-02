@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useMemo, useEffect } from 'react'
+import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import {
   TableContainer,
@@ -8,6 +8,8 @@ import {
   BodyRow,
   RowCell,
   DragHandle,
+  SelectHandle,
+  moveRowsById,
 } from 'react-table-dnd'
 
 function arrayMove(arr, from, to) {
@@ -46,19 +48,20 @@ function generateRows(count) {
 }
 
 const INIT_COLS = [
+  { id: '_select', title: '', width: 44 },
   { id: '_handle', title: '', width: 40 },
   { id: 'name', title: 'Name', width: 200 },
   { id: 'role', title: 'Role', width: 130 },
-  { id: 'status', title: 'Status', width: 120 },
-  { id: 'department', title: 'Department', width: 140 },
+  { id: 'status', title: 'Status', width: 130 },
+  { id: 'department', title: 'Department', width: 160 },
   { id: 'email', title: 'Email', width: 200 },
-  { id: 'location', title: 'Location', width: 130 },
-  { id: 'salary', title: 'Salary', width: 100 },
-  { id: 'joined', title: 'Joined', width: 110 },
+  { id: 'location', title: 'Location', width: 145 },
+  { id: 'salary', title: 'Salary', width: 120 },
+  { id: 'joined', title: 'Joined', width: 120 },
   { id: 'score', title: 'Score', width: 120 },
 ]
 
-const ALWAYS_PINNED = new Set(['_handle'])
+const ALWAYS_PINNED = new Set(['_select', '_handle'])
 
 const STATUS_MAP = {
   Active: { bg: '#052e1f', color: '#34d399', dot: '#10b981' },
@@ -80,15 +83,15 @@ const ROLE_COLORS = {
 }
 
 const AVATAR_COLORS = [
-  '#6366f1',
-  '#ec4899',
-  '#14b8a6',
-  '#f59e0b',
-  '#8b5cf6',
-  '#06b6d4',
-  '#f43f5e',
-  '#22c55e',
-]
+  '#4f46e5',
+  '#db2777',
+  '#0f766e',
+  '#b45309',
+  '#7c3aed',
+  '#0e7490',
+  '#e11d48',
+  '#15803d',
+] // 600/700 shades: white initials stay above 4.5:1
 
 function stableHash(s) {
   let h = 0
@@ -158,6 +161,32 @@ const tdStyle = {
 }
 const tdPinnedStyle = { ...tdStyle, background: '#0a1120' }
 const handleStyle = { display: 'flex', alignItems: 'center', padding: '0 2px' }
+
+const checkboxStyle = {
+  width: 15,
+  height: 15,
+  margin: 0,
+  accentColor: '#6366f1',
+  cursor: 'pointer',
+}
+
+// header checkbox: checked when all rows are selected, indeterminate when only some are
+const HeaderCheckbox = ({ total, selected, onChange }) => {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = selected > 0 && selected < total
+  }, [selected, total])
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      aria-label="Select all rows"
+      style={checkboxStyle}
+      checked={total > 0 && selected === total}
+      onChange={(e) => onChange(e.target.checked)}
+    />
+  )
+}
 
 const MenuItem = ({ children, onClick, danger }) => {
   const [hovered, setHovered] = useState(false)
@@ -346,7 +375,9 @@ const renderCell = (row, colId) => {
 export default function ShowcaseExample() {
   const [data, setData] = useState(() => generateRows(80))
   const [cols, setCols] = useState(INIT_COLS)
-  const [pinnedLeft, setPinnedLeft] = useState(new Set(['_handle']))
+  const [pinnedLeft, setPinnedLeft] = useState(new Set(['_select', '_handle']))
+  const [selected, setSelected] = useState([])
+  const selectedSet = useMemo(() => new Set(selected), [selected])
   const [pinnedRight, setPinnedRight] = useState(new Set())
   const [activeMenu, setActiveMenu] = useState(null)
   const [menuRect, setMenuRect] = useState(null)
@@ -459,11 +490,17 @@ export default function ShowcaseExample() {
     return s
   }, [data])
 
-  const handleDragEnd = useCallback(({ sourceIndex, targetIndex, dragType }) => {
-    if (sourceIndex === targetIndex) return
-    if (dragType === 'row') setData((p) => arrayMove(p, sourceIndex, targetIndex))
-    else setCols((p) => arrayMove(p, sourceIndex, targetIndex))
-  }, [])
+  const handleDragEnd = useCallback(
+    ({ sourceIndex, targetIndex, dragType, selectedIds, insertIndex }) => {
+      if (dragType === 'row') {
+        // selectedIds = every row that moved (one id for a plain drag), insertIndex = the gap
+        setData((p) => moveRowsById(p, selectedIds, insertIndex))
+        return
+      }
+      if (sourceIndex !== targetIndex) setCols((p) => arrayMove(p, sourceIndex, targetIndex))
+    },
+    [],
+  )
 
   const activeMenuIsPinned =
     !!activeMenu && (pinnedLeft.has(activeMenu) || pinnedRight.has(activeMenu))
@@ -522,10 +559,33 @@ export default function ShowcaseExample() {
           Mobile: long-press to start
         </HintPill>
         <HintPill icon={<PinIconSvg size={11} />}>Pin columns via header icon</HintPill>
+        <HintPill
+          icon={
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#818cf8"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M20 6L9 17l-5-5" />
+            </svg>
+          }
+        >
+          {selected.length > 0
+            ? `${selected.length} selected — drag one to move them all`
+            : 'Tick rows to select (⇧-click a box for a range)'}
+        </HintPill>
       </div>
 
       <TableContainer
         options={options}
+        selectable
+        selectedIds={selected}
+        onSelectionChange={setSelected}
         onDragEnd={handleDragEnd}
         renderPlaceholder={() => <Placeholder />}
         style={{
@@ -567,7 +627,13 @@ export default function ShowcaseExample() {
                 index={i}
                 style={{ ...(colIsPinned ? thPinnedStyle : thStyle), width: col.width }}
               >
-                {col.id === '_handle' ? (
+                {col.id === '_select' ? (
+                  <HeaderCheckbox
+                    total={data.length}
+                    selected={selected.length}
+                    onChange={(all) => setSelected(all ? data.map((r) => r.id) : [])}
+                  />
+                ) : col.id === '_handle' ? (
                   <span style={{ opacity: 0.25, color: '#94a3b8' }}>
                     <PinIconSvg />
                   </span>
@@ -629,6 +695,7 @@ export default function ShowcaseExample() {
         <TableBody>
           {data.map((row) => {
             const bg = stripeSet.has(row.id) ? '#131c2e' : '#0f172a'
+            const isSelected = selectedSet.has(row.id)
             return (
               <BodyRow key={row.id} id={row.id} index={data.indexOf(row)}>
                 {cols.map((col, ci) => {
@@ -641,8 +708,14 @@ export default function ShowcaseExample() {
                       index={ci}
                       style={{
                         ...(colIsPinned ? tdPinnedStyle : tdStyle),
-                        background: colIsPinned ? '#0a1120' : bg,
-                        ...(col.id === '_handle'
+                        background: isSelected
+                          ? colIsPinned
+                            ? '#17183a'
+                            : '#1e1b4b'
+                          : colIsPinned
+                            ? '#0a1120'
+                            : bg,
+                        ...(col.id === '_handle' || col.id === '_select'
                           ? { justifyContent: 'center', padding: '0 8px' }
                           : {}),
                         ...(leftPinned
@@ -662,7 +735,19 @@ export default function ShowcaseExample() {
                             : {}),
                       }}
                     >
-                      {col.id === '_handle' ? (
+                      {col.id === '_select' ? (
+                        // only the handle changes the selection; the checkbox just reflects it
+                        <SelectHandle>
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${row.name}`}
+                            style={{ ...checkboxStyle, pointerEvents: 'none' }}
+                            checked={isSelected}
+                            readOnly
+                            tabIndex={-1}
+                          />
+                        </SelectHandle>
+                      ) : col.id === '_handle' ? (
                         <DragHandle style={handleStyle}>
                           <GripIcon />
                         </DragHandle>

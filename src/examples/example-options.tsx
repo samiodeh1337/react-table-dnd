@@ -3,7 +3,15 @@
  * Demonstrates columnDragRange and rowDragRange options.
  */
 import React, { useCallback, useState, useMemo } from 'react'
-import { TableContainer, TableHeader, ColumnCell, TableBody, BodyRow, RowCell } from '../Components'
+import {
+  TableContainer,
+  TableHeader,
+  ColumnCell,
+  TableBody,
+  BodyRow,
+  RowCell,
+  moveRowsById,
+} from '../Components'
 import { generateRows, arrayMove } from './example-data'
 import type { DragEndResult } from '../Components'
 
@@ -51,22 +59,29 @@ const tdLocked: React.CSSProperties = {
 }
 const tdNormal: React.CSSProperties = { ...tdBase, background: '#110e1c', color: '#d4d0e8' }
 
+// selected rows get an inset ring (an outline paints above the cells)
+const SELECTED_ROW: React.CSSProperties = { outline: '2px solid #6366f1', outlineOffset: -2 }
+
 const OptionsExample = () => {
   const [data, setData] = useState(() => generateRows(100))
   const [cols, setCols] = useState(INIT_COLS)
+  const [selected, setSelected] = useState<string[]>([])
 
   const options = useMemo(
     () => ({
       columnDragRange: { start: LOCKED_COLS },
-      rowDragRange: { start: LOCKED_ROWS_START, end: data.length - LOCKED_ROWS_END },
+      rowDragRange: { start: LOCKED_ROWS_START, end: data.length - LOCKED_ROWS_END - 1 }, // end is inclusive
     }),
     [data.length],
   )
 
   const handleDragEnd = useCallback((r: DragEndResult) => {
-    if (r.sourceIndex === r.targetIndex) return
-    if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-    else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+    if (r.dragType === 'row') {
+      // r.selectedIds = every row that moved (one id for a plain drag), r.insertIndex = the gap
+      setData((p) => moveRowsById(p, r.selectedIds!, r.insertIndex!))
+      return
+    }
+    if (r.sourceIndex !== r.targetIndex) setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
   }, [])
 
   const isRowLocked = (i: number) => i < LOCKED_ROWS_START || i >= data.length - LOCKED_ROWS_END
@@ -82,6 +97,9 @@ const OptionsExample = () => {
       <TableContainer
         options={options}
         onDragEnd={handleDragEnd}
+        selectable
+        selectedIds={selected}
+        onSelectionChange={setSelected}
         renderPlaceholder={() => (
           <div
             style={{
@@ -119,7 +137,7 @@ const OptionsExample = () => {
           {data.map((row, ri) => {
             const locked = isRowLocked(ri)
             return (
-              <BodyRow key={row.id} id={row.id} index={ri}>
+              <BodyRow key={row.id} id={row.id} index={ri} selectedStyle={SELECTED_ROW}>
                 {cols.map((col, ci) => (
                   <RowCell
                     key={col.id}

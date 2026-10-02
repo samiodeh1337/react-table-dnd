@@ -23,3 +23,12 @@ docs-dist
 *.njsproj
 *.sln
 *.sw?
+
+# local snapshots, never committed
+Archive.zip
+*.tgz
+
+# local only: browser test scripts and working notes
+scripts/e2e/
+docs/WALKTHROUGH-3.0.0.md
+HANDOFF.md

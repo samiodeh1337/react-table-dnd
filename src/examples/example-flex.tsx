@@ -1,12 +1,24 @@
 /**
  * Example: Custom row heights — 100 rows with varying heights, visible cell borders.
+ * Multi-select through a locked checkbox column (<SelectHandle>); dragging a ticked row
+ * moves every ticked row, each keeping its own height.
  */
-import React, { useCallback, useState, useMemo } from 'react'
-import { TableContainer, TableHeader, ColumnCell, TableBody, BodyRow, RowCell } from '../Components'
+import React, { useCallback, useState, useMemo, useRef, useEffect } from 'react'
+import {
+  TableContainer,
+  TableHeader,
+  ColumnCell,
+  TableBody,
+  BodyRow,
+  RowCell,
+  SelectHandle,
+  moveRowsById,
+} from '../Components'
 import { generateRows, arrayMove } from './example-data'
 import type { DragEndResult } from '../Components'
 
 const INIT_COLS = [
+  { id: '_select', title: '', width: 48 },
   { id: 'name', title: 'Name', width: 170 },
   { id: 'role', title: 'Role', width: 130 },
   { id: 'department', title: 'Department', width: 140 },
@@ -46,6 +58,40 @@ const makeTd = (h: number, isEven: boolean, isLast: boolean): React.CSSPropertie
   overflow: 'hidden',
 })
 
+const checkbox: React.CSSProperties = {
+  width: 15,
+  height: 15,
+  margin: 0,
+  accentColor: '#22c55e',
+  cursor: 'pointer',
+}
+
+// header checkbox: checked when every row is selected, indeterminate when only some are
+const HeaderCheckbox = ({
+  total,
+  selected,
+  onChange,
+}: {
+  total: number
+  selected: number
+  onChange: (all: boolean) => void
+}) => {
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = selected > 0 && selected < total
+  }, [selected, total])
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      aria-label="Select all rows"
+      style={checkbox}
+      checked={total > 0 && selected === total}
+      onChange={(e) => onChange(e.target.checked)}
+    />
+  )
+}
+
 const heightLabel: React.CSSProperties = {
   display: 'inline-block',
   fontSize: 10,
@@ -61,7 +107,10 @@ const heightLabel: React.CSSProperties = {
 const CustomRowHeightsExample = () => {
   const [data, setData] = useState(() => generateRows(100))
   const [cols, setCols] = useState(INIT_COLS)
-  const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
+  // the checkbox column is locked in place
+  const options = useMemo(() => ({ columnDragRange: { start: 1 }, rowDragRange: {} }), [])
+  const [selected, setSelected] = useState<string[]>([])
+  const selectedSet = useMemo(() => new Set(selected), [selected])
 
   // Stable heights keyed by row id — survives reorder
   const [heightMap] = useState<Map<string, number>>(() => {
@@ -71,18 +120,28 @@ const CustomRowHeightsExample = () => {
   })
 
   const handleDragEnd = useCallback((r: DragEndResult) => {
-    if (r.sourceIndex === r.targetIndex) return
-    if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-    else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+    if (r.dragType === 'row') {
+      setData((p) => moveRowsById(p, r.selectedIds!, r.insertIndex!))
+      return
+    }
+    if (r.sourceIndex !== r.targetIndex) setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
   }, [])
 
   return (
     <div style={{ width: '100%' }}>
-      <h3 style={{ margin: '0 0 12px', color: '#6ee7b7', fontSize: 14 }}>
+      <h3 style={{ margin: '0 0 4px', color: '#6ee7b7', fontSize: 14 }}>
         Custom Row Heights — {data.length} rows (each row different size)
       </h3>
+      <p style={{ margin: '0 0 12px', fontSize: 12, color: '#6b8f7a' }}>
+        {selected.length > 0
+          ? `${selected.length} selected — drag one of them to move them all`
+          : 'Tick rows to select (⇧-click a box for a range), then drag a ticked row'}
+      </p>
       <TableContainer
         options={options}
+        selectable
+        selectedIds={selected}
+        onSelectionChange={setSelected}
         onDragEnd={handleDragEnd}
         renderPlaceholder={() => (
           <div
@@ -114,8 +173,21 @@ const CustomRowHeightsExample = () => {
       >
         <TableHeader>
           {cols.map((col, i) => (
-            <ColumnCell key={col.id} id={col.id} index={i} style={{ ...th, width: col.width }}>
-              {col.title}
+            <ColumnCell
+              key={col.id}
+              id={col.id}
+              index={i}
+              style={{ ...th, width: col.width, ...(i === 0 ? { justifyContent: 'center' } : {}) }}
+            >
+              {col.id === '_select' ? (
+                <HeaderCheckbox
+                  total={data.length}
+                  selected={selected.length}
+                  onChange={(all) => setSelected(all ? data.map((r) => r.id) : [])}
+                />
+              ) : (
+                col.title
+              )}
             </ColumnCell>
           ))}
         </TableHeader>
@@ -123,15 +195,34 @@ const CustomRowHeightsExample = () => {
           {data.map((row, ri) => {
             const h = heightMap.get(row.id) ?? 40
             const isEven = ri % 2 === 0
+            const isSelected = selectedSet.has(row.id)
             return (
               <BodyRow key={row.id} id={row.id} index={ri} style={{ minHeight: h }}>
                 {cols.map((col, ci) => (
                   <RowCell
                     key={col.id}
                     index={ci}
-                    style={makeTd(h, isEven, ci === cols.length - 1)}
+                    style={{
+                      ...makeTd(h, isEven, ci === cols.length - 1),
+                      ...(isSelected ? { background: '#0f2a1c', color: '#d1fae5' } : {}),
+                      ...(col.id === '_select'
+                        ? { justifyContent: 'center', alignItems: 'center', padding: 0 }
+                        : {}),
+                    }}
                   >
-                    {ci === 0 ? (
+                    {col.id === '_select' ? (
+                      // only the handle changes the selection; the checkbox just reflects it
+                      <SelectHandle>
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${row.name}`}
+                          style={{ ...checkbox, pointerEvents: 'none' }}
+                          checked={isSelected}
+                          readOnly
+                          tabIndex={-1}
+                        />
+                      </SelectHandle>
+                    ) : ci === 1 ? (
                       <span>
                         {row[col.id]}
                         <span style={heightLabel}>{h}px</span>

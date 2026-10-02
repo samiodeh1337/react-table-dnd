@@ -1,14 +1,20 @@
-import React, { memo } from 'react'
+import * as React from 'react'
+import { memo } from 'react'
 import type { ReactNode, CSSProperties } from 'react'
 
-interface DragHandleProps {
+/** Props of `DragHandle`. */
+export interface DragHandleProps extends Omit<
+  React.HTMLAttributes<HTMLDivElement>,
+  'children' | 'className' | 'style'
+> {
   children: ReactNode
   className?: string
   style?: CSSProperties
 }
 
-const DragHandle: React.FC<DragHandleProps> = memo(({ children, className, style }) => (
+const DragHandle: React.FC<DragHandleProps> = memo(({ children, className, style, ...rest }) => (
   <div
+    {...rest}
     data-drag-handle="true"
     className={className}
     style={{

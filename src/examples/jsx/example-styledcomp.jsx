@@ -8,6 +8,7 @@ import {
   TableBody,
   BodyRow,
   RowCell,
+  moveRowsById,
 } from 'react-table-dnd'
 
 function arrayMove(arr, from, to) {
@@ -82,7 +83,12 @@ const StyledCol = styled(ColumnCell)`
   background: #0f2440;
 `
 
-const StyledRow = styled(BodyRow)``
+const StyledRow = styled(BodyRow)`
+  &[data-selected='true'] {
+    outline: 2px solid #6366f1;
+    outline-offset: -2px;
+  }
+`
 
 const StyledCell = styled(RowCell)`
   display: flex;
@@ -111,16 +117,29 @@ const COLS = [
 export default function StyledCompExample() {
   const [data, setData] = useState(() => generateRows(60))
   const [cols, setCols] = useState(COLS)
+  const [selected, setSelected] = useState([])
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 
-  const handleDragEnd = useCallback(({ sourceIndex, targetIndex, dragType }) => {
-    if (sourceIndex === targetIndex) return
-    if (dragType === 'row') setData((p) => arrayMove(p, sourceIndex, targetIndex))
-    else setCols((p) => arrayMove(p, sourceIndex, targetIndex))
-  }, [])
+  const handleDragEnd = useCallback(
+    ({ sourceIndex, targetIndex, dragType, selectedIds, insertIndex }) => {
+      if (dragType === 'row') {
+        // selectedIds = every row that moved (one id for a plain drag), insertIndex = the gap
+        setData((p) => moveRowsById(p, selectedIds, insertIndex))
+        return
+      }
+      if (sourceIndex !== targetIndex) setCols((p) => arrayMove(p, sourceIndex, targetIndex))
+    },
+    [],
+  )
 
   return (
-    <StyledTable options={options} onDragEnd={handleDragEnd}>
+    <StyledTable
+      options={options}
+      selectable
+      selectedIds={selected}
+      onSelectionChange={setSelected}
+      onDragEnd={handleDragEnd}
+    >
       <TableHeader>
         {cols.map((col, i) => (
           <StyledCol key={col.id} id={col.id} index={i} style={{ width: col.width }}>

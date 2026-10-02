@@ -3,27 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>react-table-dnd - Drag-and-Drop Sortable Table for React</title>
+    <!-- the app replaces title and description per page (see useDocumentMeta in src/App.tsx) -->
+    <title>react-table-dnd: drag-and-drop rows and columns for React tables</title>
     <meta
       name="description"
-      content="React table component with drag-and-drop row and column reordering. 60fps animations, auto-scroll, virtual scrolling for 100k+ rows, mobile support, TypeScript, and full style control. Zero UI dependencies."
-    />
-    <meta
-      name="keywords"
-      content="react, table, sortable, draggable, drag and drop, row reordering, column reordering, react table, data grid, virtual scrolling, react component, react drag drop, sortable table, react sortable, react grid, react data table, mobile drag drop"
+      content="Reorder rows and columns in React tables by dragging. Multi-select group drag, virtual lists of 100,000+ rows, touch, drag handles and locked ranges. No dependencies besides React."
     />
     <meta name="author" content="Sami Odeh" />
     <meta name="google-site-verification" content="f0PaeyhTa7SwH0QOxSzJQgT3qmC9BZfkR0t3XGovM5Y" />
     <meta name="robots" content="index, follow" />
     <meta name="theme-color" content="#09090b" />
 
-    <!-- Open Graph (Facebook, LinkedIn, Discord, Slack) -->
+    <!-- Open Graph (LinkedIn, Slack, Discord, Facebook) -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="react-table-dnd" />
-    <meta property="og:title" content="react-table-dnd - Drag-and-Drop Sortable Table for React" />
+    <meta
+      property="og:title"
+      content="react-table-dnd: drag-and-drop rows and columns for React tables"
+    />
     <meta
       property="og:description"
-      content="Reorder rows and columns with smooth 60fps animations, auto-scroll, virtual scrolling for 100k+ rows, and full mobile support. Zero UI dependencies."
+      content="Reorder rows and columns, drag a multi-row selection as one group, virtualize 100,000+ rows. Touch support, no dependencies besides React."
     />
     <meta property="og:url" content="https://samiodeh1337.github.io/react-table-dnd/" />
     <meta
@@ -34,94 +34,50 @@
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="react-table-dnd — drag-and-drop sortable table for React"
+      content="react-table-dnd: drag-and-drop rows and columns for React tables"
     />
     <meta property="og:locale" content="en_US" />
 
-    <!-- Twitter -->
+    <!-- X / Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="react-table-dnd - Sortable Table for React" />
+    <meta
+      name="twitter:title"
+      content="react-table-dnd: drag-and-drop rows and columns for React tables"
+    />
     <meta
       name="twitter:description"
-      content="Drag-and-drop row and column reordering for React tables. 60fps animations, virtual scrolling, mobile support."
+      content="Reorder rows and columns, drag a multi-row selection as one group, virtualize 100,000+ rows. No dependencies besides React."
     />
     <meta
       name="twitter:image"
       content="https://samiodeh1337.github.io/react-table-dnd/og-image.png"
     />
 
-    <!-- Canonical URL -->
     <link rel="canonical" href="https://samiodeh1337.github.io/react-table-dnd/" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="/react-table-dnd/favicon.svg" />
-    <link rel="apple-touch-icon" href="/react-table-dnd/apple-touch-icon.png" />
-
-    <!-- Preconnect for performance -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-
-    <!-- Structured Data: Software Application (better than SoftwareSourceCode for search) -->
+    <!-- Structured data. %LIB_VERSION% is filled in from package.json at build time. -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
+        "@type": "SoftwareSourceCode",
         "name": "react-table-dnd",
-        "applicationCategory": "DeveloperApplication",
-        "operatingSystem": "Web",
-        "description": "React component library for drag-and-drop row and column reordering in tables. Features 60fps animations, auto-scroll, virtual scrolling for 100k+ rows, mobile long-press support, drag handles, and full style customization.",
+        "description": "React components for drag-and-drop row and column reordering in tables: multi-select group drag, virtual lists, touch support.",
         "url": "https://samiodeh1337.github.io/react-table-dnd/",
+        "codeRepository": "https://github.com/samiodeh1337/react-table-dnd",
         "downloadUrl": "https://www.npmjs.com/package/react-table-dnd",
-        "softwareVersion": "2.0.18",
-        "programmingLanguage": ["TypeScript", "React"],
+        "version": "%LIB_VERSION%",
+        "programmingLanguage": ["TypeScript", "JavaScript"],
+        "runtimePlatform": "React 18+",
         "license": "https://opensource.org/licenses/MIT",
         "author": {
           "@type": "Person",
           "name": "Sami Odeh",
           "url": "https://github.com/samiodeh1337"
-        },
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "USD"
         }
       }
     </script>
-
-    <!-- Structured Data: BreadcrumbList -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-          {
-            "@type": "ListItem",
-            "position": 1,
-            "name": "Home",
-            "item": "https://samiodeh1337.github.io/react-table-dnd/"
-          },
-          {
-            "@type": "ListItem",
-            "position": 2,
-            "name": "Demos",
-            "item": "https://samiodeh1337.github.io/react-table-dnd/#demos"
-          },
-          {
-            "@type": "ListItem",
-            "position": 3,
-            "name": "Getting Started",
-            "item": "https://samiodeh1337.github.io/react-table-dnd/#getting-started"
-          },
-          {
-            "@type": "ListItem",
-            "position": 4,
-            "name": "API Reference",
-            "item": "https://samiodeh1337.github.io/react-table-dnd/#api"
-          }
-        ]
-      }
-    </script>
-
-    <!-- Structured Data: FAQPage -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -132,39 +88,39 @@
             "name": "How do I install react-table-dnd?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Run npm install react-table-dnd. It requires React 17 or higher as a peer dependency."
+              "text": "Run npm install react-table-dnd and import \"react-table-dnd/styles\" once. It needs React 18 or newer."
             }
           },
           {
             "@type": "Question",
-            "name": "Does react-table-dnd support mobile drag and drop?",
+            "name": "Can I drag several rows at once?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Yes. It supports mobile via long-press to drag, with auto-scroll near edges and smooth touch event handling optimized for Chrome Android and Safari iOS."
+              "text": "Yes. Turn on selectable, select rows with click, Ctrl/Cmd+click, Shift+click or checkboxes, and drag any selected row to move them all. Apply the drop with moveRowsById."
             }
           },
           {
             "@type": "Question",
-            "name": "Can react-table-dnd handle large datasets?",
+            "name": "Does it work on phones and tablets?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Yes. It integrates with @tanstack/react-virtual for virtual scrolling, handling 100,000+ rows with no performance drop. Drag animations use direct DOM transforms at 60fps without React re-renders."
+              "text": "Yes. A long-press starts a drag and ordinary swipes scroll the table."
             }
           },
           {
             "@type": "Question",
-            "name": "How do I customize the table styles?",
+            "name": "Does it work with large tables?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Every component accepts className and style props. Works with plain CSS, CSS modules, Tailwind CSS, and styled-components. The library applies no opinionated styles to cells."
+              "text": "Yes. It works with @tanstack/react-virtual for 100,000+ rows. React renders only when a drag starts and when it ends."
             }
           },
           {
             "@type": "Question",
-            "name": "Can I lock specific rows or columns from being dragged?",
+            "name": "Does it work with TanStack Table?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Yes. Use the options prop with rowDragRange and columnDragRange to specify which rows and columns are draggable. Locked items stay in place."
+              "text": "Yes. TanStack Table keeps the rows and the column order, and these components render and drag them."
             }
           }
         ]
@@ -174,7 +130,7 @@
   <body>
     <div id="root"></div>
 
-    <!-- SEO: Static content for crawlers that don't execute JavaScript -->
+    <!-- For crawlers that don't run JavaScript -->
     <noscript>
       <div
         style="
@@ -185,60 +141,41 @@
           color: #333;
         "
       >
-        <h1>react-table-dnd — Drag-and-Drop Sortable Table for React</h1>
+        <h1>react-table-dnd: drag-and-drop rows and columns for React tables</h1>
         <p>
-          A React component library for drag-and-drop sortable tables with row and column
-          reordering. 60fps animations, auto-scroll, virtual scrolling for 100k+ rows, mobile
-          support, and full style control.
+          Reorder rows and columns by dragging, drag a multi-row selection as one group, and
+          virtualize 100,000+ rows. Works on touch screens. No dependencies besides React.
+        </p>
+
+        <h2>Install</h2>
+        <p>
+          <code>npm install react-table-dnd</code>, then
+          <code>import "react-table-dnd/styles"</code> once.
         </p>
 
         <h2>Features</h2>
         <ul>
-          <li>Drag-and-drop row and column reordering</li>
-          <li>Smooth 60fps animations using direct DOM transforms</li>
-          <li>Auto-scroll when dragging near container edges</li>
-          <li>Mobile support with long-press to drag</li>
-          <li>Drag range constraints for locking rows and columns</li>
-          <li>DragHandle component for grip-based dragging</li>
-          <li>Virtual scrolling support for 100,000+ rows</li>
-          <li>Full className and style prop support on every component</li>
-          <li>Works with Tailwind CSS, styled-components, CSS modules</li>
-          <li>TypeScript support with full type definitions</li>
-          <li>Zero external UI dependencies</li>
+          <li>Row and column reordering</li>
+          <li>Multi-select with click, Ctrl/Cmd, Shift, checkboxes or tap, dragged as one group</li>
+          <li>Virtual tables with @tanstack/react-virtual</li>
+          <li>Long-press to drag on touch screens</li>
+          <li>Drag handles, locked rows and columns</li>
+          <li>Drag events: onDragStart, onDragOver, onDragEnd, onDragCancel</li>
+          <li>Works with TanStack Table</li>
+          <li>TypeScript types, ESM and CommonJS, server rendering</li>
         </ul>
-
-        <h2>Install</h2>
-        <code>npm install react-table-dnd</code>
 
         <h2>Components</h2>
         <ul>
-          <li><strong>TableContainer</strong> — Root wrapper providing drag-and-drop context</li>
-          <li><strong>TableHeader</strong> — Header row container</li>
-          <li><strong>ColumnCell</strong> — Draggable column header cell</li>
-          <li>
-            <strong>TableBody</strong> — Body container with ref support for virtual scrolling
-          </li>
-          <li><strong>BodyRow</strong> — Draggable table row</li>
-          <li><strong>RowCell</strong> — Cell within a body row</li>
-          <li><strong>DragHandle</strong> — Restricts drag to a specific grip element</li>
+          <li>TableContainer: the root, with the drag events and selection props</li>
+          <li>TableHeader and ColumnCell: the header row and its draggable cells</li>
+          <li>TableBody, BodyRow and RowCell: the body, its draggable rows and their cells</li>
+          <li>DragHandle and SelectHandle: limit dragging or selecting to one element</li>
         </ul>
 
-        <h2>Quick Start</h2>
         <p>
-          Wrap your table with TableContainer and pass an onDragEnd callback to handle reordering.
-          Each ColumnCell and BodyRow is independently draggable. Supports both row and column
-          reordering simultaneously.
-        </p>
-
-        <h2>Styling</h2>
-        <p>
-          Every component accepts className and style props. The library applies no opinionated
-          styles — use plain CSS, Tailwind, styled-components, or any approach you prefer.
-        </p>
-
-        <p>
-          <a href="https://github.com/samiodeh1337/react-table-dnd">View on GitHub</a> |
-          <a href="https://www.npmjs.com/package/react-table-dnd">View on npm</a>
+          <a href="https://github.com/samiodeh1337/react-table-dnd">GitHub</a> |
+          <a href="https://www.npmjs.com/package/react-table-dnd">npm</a>
         </p>
       </div>
     </noscript>

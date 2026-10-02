@@ -8,6 +8,7 @@ import {
   TableBody,
   BodyRow,
   RowCell,
+  moveRowsById,
 } from 'react-table-dnd'
 
 function arrayMove(arr, from, to) {
@@ -66,21 +67,34 @@ const COLS = [
   { id: 'email', title: 'Email', width: 200 },
 ]
 
+// selected rows get an inset ring (an outline paints above the cells)
+const SELECTED_ROW = { outline: '2px solid #6366f1', outlineOffset: -2 }
+
 export default function TailwindExample() {
   const [data, setData] = useState(() => generateRows(60))
   const [cols, setCols] = useState(COLS)
+  const [selected, setSelected] = useState([])
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 
-  const handleDragEnd = useCallback(({ sourceIndex, targetIndex, dragType }) => {
-    if (sourceIndex === targetIndex) return
-    if (dragType === 'row') setData((p) => arrayMove(p, sourceIndex, targetIndex))
-    else setCols((p) => arrayMove(p, sourceIndex, targetIndex))
-  }, [])
+  const handleDragEnd = useCallback(
+    ({ sourceIndex, targetIndex, dragType, selectedIds, insertIndex }) => {
+      if (dragType === 'row') {
+        // selectedIds = every row that moved (one id for a plain drag), insertIndex = the gap
+        setData((p) => moveRowsById(p, selectedIds, insertIndex))
+        return
+      }
+      if (sourceIndex !== targetIndex) setCols((p) => arrayMove(p, sourceIndex, targetIndex))
+    },
+    [],
+  )
 
   return (
     <TableContainer
       options={options}
       onDragEnd={handleDragEnd}
+      selectable
+      selectedIds={selected}
+      onSelectionChange={setSelected}
       className="h-[420px] rounded-xl border border-gray-700 bg-gray-900 overflow-hidden"
     >
       <TableHeader>
@@ -100,7 +114,7 @@ export default function TailwindExample() {
       </TableHeader>
       <TableBody>
         {data.map((row, ri) => (
-          <BodyRow key={row.id} id={row.id} index={ri}>
+          <BodyRow key={row.id} id={row.id} index={ri} selectedStyle={SELECTED_ROW}>
             {cols.map((col, ci) => (
               <RowCell
                 key={col.id}

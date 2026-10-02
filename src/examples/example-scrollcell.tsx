@@ -3,7 +3,15 @@
  * Demonstrates that touch scroll inside a cell scrolls the cell, not the table body.
  */
 import React, { useCallback, useState, useMemo } from 'react'
-import { TableContainer, TableHeader, ColumnCell, TableBody, BodyRow, RowCell } from '../Components'
+import {
+  TableContainer,
+  TableHeader,
+  ColumnCell,
+  TableBody,
+  BodyRow,
+  RowCell,
+  moveRowsById,
+} from '../Components'
 import { arrayMove } from './example-data'
 import type { DragEndResult } from '../Components'
 
@@ -247,15 +255,22 @@ const Tag = ({ label }: { label: string }) => (
   </span>
 )
 
+// selected rows get an inset ring (an outline paints above the cells)
+const SELECTED_ROW: React.CSSProperties = { outline: '2px solid #6366f1', outlineOffset: -2 }
+
 const ScrollCellExample = () => {
   const [rows, setRows] = useState(ROWS)
   const [cols, setCols] = useState(COLS)
+  const [selected, setSelected] = useState<string[]>([])
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 
   const handleDragEnd = useCallback((r: DragEndResult) => {
-    if (r.sourceIndex === r.targetIndex) return
-    if (r.dragType === 'row') setRows((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-    else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+    if (r.dragType === 'row') {
+      // r.selectedIds = every row that moved (one id for a plain drag), r.insertIndex = the gap
+      setRows((p) => moveRowsById(p, r.selectedIds!, r.insertIndex!))
+      return
+    }
+    if (r.sourceIndex !== r.targetIndex) setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
   }, [])
 
   return (
@@ -272,6 +287,9 @@ const ScrollCellExample = () => {
       <TableContainer
         options={options}
         onDragEnd={handleDragEnd}
+        selectable
+        selectedIds={selected}
+        onSelectionChange={setSelected}
         renderPlaceholder={() => (
           <div
             style={{
@@ -294,7 +312,7 @@ const ScrollCellExample = () => {
         </TableHeader>
         <TableBody>
           {rows.map((row, ri) => (
-            <BodyRow key={row.id} id={row.id} index={ri}>
+            <BodyRow key={row.id} id={row.id} index={ri} selectedStyle={SELECTED_ROW}>
               {cols.map((col, ci) => (
                 <RowCell key={col.id} index={ci} style={td}>
                   {col.id === 'notes' ? (

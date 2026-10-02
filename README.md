@@ -3,12 +3,10 @@
 # react-table-dnd
 
 <p>
-  <img src="./docs/desktop.gif" alt="react-table-dnd — drag rows and columns" width="680" />
+  <img src="https://raw.githubusercontent.com/samiodeh1337/react-table-dnd/main/docs/desktop.gif" alt="react-table-dnd — drag rows and columns" width="680" />
 </p>
 
 <p><strong>Drag-and-drop row & column reordering for React tables.</strong></p>
-
-<p>60fps animations &middot; Auto-scroll &middot; Mobile long-press &middot; Virtual scrolling &middot; Zero UI deps</p>
 
 <p>
   <a href="https://www.npmjs.com/package/react-table-dnd"><img src="https://img.shields.io/npm/v/react-table-dnd?color=6366f1&label=npm" alt="npm" /></a>
@@ -31,19 +29,11 @@
 
 ---
 
-## Why react-table-dnd?
+> Upgrading from 2.x? The v2 README, architecture notes and examples are archived in [`docs/v2/`](https://github.com/samiodeh1337/react-table-dnd/blob/main/docs/v2/README.md). See the [changelog](https://github.com/samiodeh1337/react-table-dnd/blob/main/CHANGELOG.md) for what changed in 3.0.
 
-- **Rows & columns** — reorder both independently, automatic direction detection
-- **60fps** — direct DOM transforms during drag, no React re-renders until drop
-- **Mobile** — long-press to drag on touch devices, optimized for Chrome Android & Safari iOS
-- **Auto-scroll** — accelerates when dragging near container edges
-- **100k+ rows** — works with `@tanstack/react-virtual`
-- **Drag handles** — restrict drag to a grip icon with `<DragHandle>`
-- **Constraints** — lock specific rows or columns via drag range options
-- **Drop animation** — clone smoothly flies to the drop target
-- **Fully styleable** — `className` + `style` on every component — Tailwind, styled-components, CSS modules
-- **TypeScript** — full type definitions out of the box
-- **Tiny** — only peer dependency is React
+## Features
+
+Reorder rows and columns, drag a multi-row selection as one group, virtual lists of 100,000+ rows, touch, drag handles, locked ranges. No dependencies besides React.
 
 ## Install
 
@@ -62,11 +52,14 @@ import 'react-table-dnd/styles'
 ## Quick Start
 
 ```jsx
+import { useState } from "react";
 import {
   TableContainer, TableHeader, ColumnCell,
-  TableBody, BodyRow, RowCell,
+  TableBody, BodyRow, RowCell, moveRowsById,
 } from "react-table-dnd";
+import "react-table-dnd/styles";
 
+// columns move one at a time: take one item out and put it back at targetIndex
 function arrayMove(arr, from, to) {
   const next = [...arr];
   const [item] = next.splice(from, 1);
@@ -88,9 +81,10 @@ export default function App() {
 
   return (
     <TableContainer
-      onDragEnd={({ sourceIndex, targetIndex, dragType }) => {
-        if (dragType === "column") setCols(arrayMove(cols, sourceIndex, targetIndex));
-        else setRows(arrayMove(rows, sourceIndex, targetIndex));
+      onDragEnd={(r) => {
+        // one row or the whole selection
+        if (r.dragType === "row") setRows((prev) => moveRowsById(prev, r.selectedIds, r.insertIndex));
+        else setCols((prev) => arrayMove(prev, r.sourceIndex, r.targetIndex));
       }}
     >
       <TableHeader>
@@ -122,40 +116,70 @@ export default function App() {
 
 | Component | Props | Description |
 |---|---|---|
-| **`TableContainer`** | `onDragEnd`, `options`, `renderPlaceholder`, `className`, `style` | Root wrapper — provides drag context |
+| **`TableContainer`** | `onDragEnd`, `onDragStart`, `onDragOver`, `onDragCancel`, `options`, `renderPlaceholder`, `selectable`, `selectedIds`, `defaultSelectedIds`, `onSelectionChange`, `showDragCount`, `className`, `style` | Root; provides the drag context |
 | **`TableHeader`** | `className`, `style` | Header row container |
-| **`ColumnCell`** | **`id`**, **`index`**, `className`, `style` | Draggable column header cell |
-| **`TableBody`** | `className`, `style` | Scrollable body — pass `ref` for virtual scrolling |
-| **`BodyRow`** | **`id`**, **`index`**, `className`, `style` | Draggable row |
+| **`ColumnCell`** | **`id`**, **`index`**, `disabled`, `className`, `style` | Draggable column header cell |
+| **`TableBody`** | `className`, `style` | Scrollable body. Its `ref` is the scroll element for a virtualizer |
+| **`BodyRow`** | **`id`**, **`index`**, `disabled`, `className`, `style`, `styles`, `selectedClassName`, `selectedStyle` | Draggable row. `styles` styles the row's outer element (the one a virtual list positions) |
 | **`RowCell`** | **`index`**, `className`, `style` | Cell within a row |
-| **`DragHandle`** | `className`, `style` | Wrap inside BodyRow/ColumnCell to restrict drag to this element |
+| **`DragHandle`** | `className`, `style` | Only this element starts a drag |
+| **`SelectHandle`** | `className`, `style` | Only this element changes the selection |
 
-Bold props are required.
+Bold props are required. `disabled` means the row or column cannot be picked up (a row also cannot be selected); others can still be dropped around it (to pin items in place, use the drag ranges in `options`). Every component passes other HTML attributes (`role`, `aria-*`, `data-*`, `title`, …) to its element; `TableContainer` keeps `onMouseDown` / `onTouchStart` for itself. Every component's props type is exported: `BodyRowProps`, `TableContainerProps`, and so on.
+
+### Drag events
+
+Besides `onDragEnd`, `TableContainer` takes `onDragStart`, `onDragOver` (the drop slot changed) and `onDragCancel` (Escape, the window lost focus, or released without moving). Every drag calls `onDragStart`, then either `onDragEnd` or `onDragCancel`.
+
+### TanStack Table
+
+These components can render a TanStack Table, which keeps the column order while `onDragEnd` updates it. See the [TanStack Table guide](https://samiodeh1337.github.io/react-table-dnd/#/docs/tanstack-table) for a full example.
 
 ### Column Width
 
-Pass `width` inside the `style` prop on `ColumnCell`. Columns grow proportionally by default to fill available space. To fix a column at exactly its pixel size, also pass `flex`:
+Pass `width` inside the `style` prop on `ColumnCell` (a number, or a pixel string like `"150px"`; the default is 50). The `RowCell`s in that column follow it. Columns grow proportionally by default to fill available space. To fix a column at exactly its pixel size, pass the same `flex` to the `ColumnCell` and to every `RowCell` in that column:
 
 ```jsx
-{/* Flex — grows proportionally to fill container (default) */}
+{/* default: grows to fill */}
 <ColumnCell style={{ width: 150 }}>Name</ColumnCell>
 
-{/* Fixed — stays exactly 150px regardless of container width */}
+{/* fixed at 150px */}
 <ColumnCell style={{ width: 150, flex: "0 0 150px" }}>Name</ColumnCell>
+<RowCell index={0} style={{ flex: "0 0 150px" }}>…</RowCell>
 ```
 
 ### Types
 
 ```typescript
-interface DragEndResult {
-  sourceIndex: number;
-  targetIndex: number;
-  dragType: "row" | "column";
+// check dragType and TypeScript knows which fields are set
+type DragEndResult = RowDragEndResult | ColumnDragEndResult;
+
+interface RowDragEndResult {
+  dragType: "row";
+  id: string;               // the grabbed row
+  sourceIndex: number;       // index of the row you grabbed
+  targetIndex: number;       // where the grabbed row lands (a one-item move, as in 2.x)
+  selectedIds: string[];     // every row that moved (rows scrolled out of view come last)
+  sourceIndices: number[];   // their indices as rendered
+  insertIndex: number;       // the slot in the original array: pass it to moveRowsById
 }
+
+interface ColumnDragEndResult {
+  dragType: "column";
+  id: string;               // the grabbed column
+  sourceIndex: number;       // arrayMove(columns, sourceIndex, targetIndex)
+  targetIndex: number;
+}
+
+// what onDragStart and onDragCancel receive
+type DragStartInfo =
+  | { dragType: "row"; id: string; sourceIndex: number; selectedIds: string[]; sourceIndices: number[] }
+  | { dragType: "column"; id: string; sourceIndex: number };
+interface DragCancelInfo { dragType: "row" | "column"; id: string; sourceIndex: number }
 
 interface DragRange {
   start?: number;  // first draggable index
-  end?: number;    // last draggable index (exclusive)
+  end?: number;    // last draggable index (inclusive)
 }
 ```
 
@@ -165,7 +189,7 @@ interface DragRange {
 <TableContainer
   options={{
     rowDragRange: { start: 1 },        // lock first row
-    columnDragRange: { start: 1, end: 5 }, // lock first col, only 1-4 draggable
+    columnDragRange: { start: 1, end: 5 }, // lock first col, only 1-5 draggable
   }}
 />
 ```
@@ -182,6 +206,28 @@ import { DragHandle } from "react-table-dnd";
   </RowCell>
 </BodyRow>
 ```
+
+### Multi-select
+
+Turn on `selectable` and rows select with a click, `Ctrl`/`Cmd`+click (toggle) and `Shift`+click (range); a tap on touch. Dragging a selected row moves the whole selection. With `selectable` on, a row drag starts after the pointer moves a few pixels, so a click stays a click.
+
+```jsx
+import { TableContainer, moveRowsById } from "react-table-dnd";
+
+const [selected, setSelected] = useState([]);
+
+<TableContainer
+  selectable
+  selectedIds={selected}            // controlled; omit to let the table keep it
+  onSelectionChange={setSelected}   // ids as strings, in table order
+  onDragEnd={({ dragType, sourceIndex, targetIndex, selectedIds, insertIndex }) => {
+    if (dragType === "column") setCols((prev) => arrayMove(prev, sourceIndex, targetIndex));
+    else setRows((prev) => moveRowsById(prev, selectedIds, insertIndex)); // one row or the whole selection
+  }}
+/>
+```
+
+Selected rows get `data-selected="true"`; `selectedClassName` / `selectedStyle` on `BodyRow` also work. Checkboxes, touch, virtual tables and locked rows: [Multi-select guide](https://samiodeh1337.github.io/react-table-dnd/#/docs/multi-select).
 
 ### Custom Placeholder
 
@@ -239,14 +285,30 @@ const Col = styled(ColumnCell)`
 </tr>
 </table>
 
-## Browser Support
+### Styling hooks
 
-| | Chrome | Firefox | Safari | Edge |
-|---|---|---|---|---|
-| **Desktop** | ✅ | ✅ | ✅ | ✅ |
-| **Mobile** | ✅ | ✅ | ✅ | ✅ |
+| Selector / variable | What it targets |
+|---|---|
+| `[data-selected="true"]` | a selected row's `[data-rtdnd='tr']` element (or use `selectedClassName` / `selectedStyle`) |
+| `[data-drop-target]` | the row or column the drop will land on, while dragging (style the `[data-rtdnd='tr']` or `[data-rtdnd='th']` inside it) |
+| `[data-rtdnd='drag-count']` | the count badge on the group drag card |
+| `[data-rtdnd='drag-stack']` | the two ghost cards under the group drag card |
+| `[data-rtdnd='clone']` | the drag card itself; it carries `[data-group-size]` while several rows move |
+| `--rtdnd-card-bg` | the drag card's colour when several rows move, copied from the row's first cell, the row or the table body, whichever has a solid background; to force one, set it on the card: `[data-group-size] { --rtdnd-card-bg: #1e293b !important; }` |
 
-Mobile uses long-press to initiate drag.
+### Advanced: the store
+
+`useTable()`, `useTableStore(selector)` and `useTableDispatch()` read and update the table's internal store from a component rendered inside `TableContainer`. They are exported for advanced integrations and marked experimental: the state shape and action types are internal and may change in a minor release. Prefer the props above.
+
+A `useTableStore` selector must return a primitive or an existing reference (`(s) => s.dragged.isDragging`, `(s) => s.selection`), never a new object: `(s) => ({ ... })` re-renders forever.
+
+## Server-side rendering
+
+The components render on the server; dragging starts on the client after hydration. In the Next.js App Router, put your table in a component that starts with `'use client'`. Both ESM (`import`) and CommonJS (`require`) entry points are published, with types for each.
+
+## Browser support
+
+Current Chrome, Firefox, Safari and Edge, on desktop and mobile.
 
 ## Contributing
 
@@ -255,8 +317,10 @@ git clone https://github.com/samiodeh1337/react-table-dnd.git
 cd react-table-dnd
 npm install
 npm run dev    # docs site at localhost:5173
+npm test       # unit tests (vitest) for the pure drag logic under src/hooks/drag/
+npm run lint && npm run format:check
 ```
 
 ## License
 
-[MIT](LICENSE) &copy; [Sami Odeh](https://github.com/samiodeh1337)
+[MIT](https://github.com/samiodeh1337/react-table-dnd/blob/main/LICENSE) &copy; [Sami Odeh](https://github.com/samiodeh1337)

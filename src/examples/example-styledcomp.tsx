@@ -5,9 +5,17 @@
  *
  * npm install styled-components
  */
-import React, { useCallback, useState, useMemo } from 'react'
+import { useCallback, useState, useMemo } from 'react'
 import styled from 'styled-components'
-import { TableContainer, TableHeader, ColumnCell, TableBody, BodyRow, RowCell } from '../Components'
+import {
+  TableContainer,
+  TableHeader,
+  ColumnCell,
+  TableBody,
+  BodyRow,
+  RowCell,
+  moveRowsById,
+} from '../Components'
 import { generateRows, arrayMove } from './example-data'
 import type { DragEndResult } from '../Components'
 
@@ -32,7 +40,12 @@ const StyledCol = styled(ColumnCell)`
   background: #0f2440;
 `
 
-const StyledRow = styled(BodyRow)``
+const StyledRow = styled(BodyRow)`
+  &[data-selected='true'] {
+    outline: 2px solid #6366f1;
+    outline-offset: -2px;
+  }
+`
 
 const StyledCell = styled(RowCell)`
   display: flex;
@@ -61,12 +74,16 @@ const INIT_COLS = [
 const StyledCompExample = () => {
   const [data, setData] = useState(() => generateRows(60))
   const [cols, setCols] = useState(INIT_COLS)
+  const [selected, setSelected] = useState<string[]>([])
   const options = useMemo(() => ({ columnDragRange: {}, rowDragRange: {} }), [])
 
   const handleDragEnd = useCallback((r: DragEndResult) => {
-    if (r.sourceIndex === r.targetIndex) return
-    if (r.dragType === 'row') setData((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
-    else setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
+    if (r.dragType === 'row') {
+      // r.selectedIds = every row that moved (one id for a plain drag), r.insertIndex = the gap
+      setData((p) => moveRowsById(p, r.selectedIds!, r.insertIndex!))
+      return
+    }
+    if (r.sourceIndex !== r.targetIndex) setCols((p) => arrayMove(p, r.sourceIndex, r.targetIndex))
   }, [])
 
   return (
@@ -74,7 +91,13 @@ const StyledCompExample = () => {
       <p style={{ margin: '0 0 12px', color: '#60a5fa', fontSize: 13, fontWeight: 600 }}>
         styled-components
       </p>
-      <StyledTable options={options} onDragEnd={handleDragEnd}>
+      <StyledTable
+        options={options}
+        selectable
+        selectedIds={selected}
+        onSelectionChange={setSelected}
+        onDragEnd={handleDragEnd}
+      >
         <TableHeader>
           {cols.map((col, i) => (
             <StyledCol key={col.id} id={col.id} index={i} style={{ width: col.width }}>
